@@ -216,13 +216,13 @@ app.listen(port, () => {
 });
 
 // Keep-Alive Mechanism
-const http = require('http');
+const https = require('https');
 const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
 
 setInterval(() => {
     if (process.env.RENDER_EXTERNAL_URL) {
         console.log(`[Keep-Alive] Pinging ${process.env.RENDER_EXTERNAL_URL}`);
-        http.get(process.env.RENDER_EXTERNAL_URL, (res) => {
+        https.get(process.env.RENDER_EXTERNAL_URL, (res) => {
             if (res.statusCode === 200) {
                 console.log('[Keep-Alive] Ping successful');
             } else {
