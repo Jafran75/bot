@@ -4,7 +4,7 @@ const db = require('./db');
 // --- CONFIGURATION ---
 // Replace 'YOUR_TELEGRAM_BOT_TOKEN' with your actual token from BotFather
 // or use an environment variable.
-const token = process.env.BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
+const token = process.env.BOT_TOKEN || '8013077287:AAEwG6GUNVzrYwzZ0oTTc651f8XWx3PjsAg';
 
 if (token === 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
     console.warn("⚠️  WARNING: You haven't set a Bot Token. The bot will fail to start.");
@@ -12,6 +12,7 @@ if (token === 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
 }
 
 const bot = new TelegramBot(token, { polling: true });
+
 
 // --- GAME LOGIC & UTILS ---
 
