@@ -201,3 +201,35 @@ bot.on('polling_error', (error) => {
         console.error(`[Polling Error] ${error.code}: ${error.message}`);
     }
 });
+
+// --- RENDER DEPLOYMENT SUPPORT ---
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('Wingo Bot is Running! 🚀');
+});
+
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+});
+
+// Keep-Alive Mechanism
+const http = require('http');
+const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+
+setInterval(() => {
+    if (process.env.RENDER_EXTERNAL_URL) {
+        console.log(`[Keep-Alive] Pinging ${process.env.RENDER_EXTERNAL_URL}`);
+        http.get(process.env.RENDER_EXTERNAL_URL, (res) => {
+            if (res.statusCode === 200) {
+                console.log('[Keep-Alive] Ping successful');
+            } else {
+                console.error(`[Keep-Alive] Ping failed: ${res.statusCode}`);
+            }
+        }).on('error', (err) => {
+            console.error(`[Keep-Alive] Error: ${err.message}`);
+        });
+    }
+}, PING_INTERVAL);
