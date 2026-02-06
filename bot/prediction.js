@@ -6,115 +6,140 @@ class WingoPredictor {
         this.maxHistory = 100;
     }
 
-    // Helper: Number to Size
-    getSize(number) {
-        return number >= 5 ? 'Big' : 'Small';
-    }
-
-    // Helper: Number to Color
-    // Rule: Even = Red, Odd = Green
-    // (User specific rule. Standard is 0,5 violet mix, but user said Even=Red, Odd=Green)
-    getColor(number) {
-        return number % 2 === 0 ? 'Red' : 'Green'; // 0 is even -> Red
-    }
+    getSize(number) { return number >= 5 ? 'Big' : 'Small'; }
+    getColor(number) { return number % 2 === 0 ? 'Red' : 'Green'; }
 
     addResult(period, number) {
+        if (this.history.find(r => r.period === period)) return false;
+
         const size = this.getSize(number);
         const color = this.getColor(number);
-
-        // Avoid duplicate periods
-        if (this.history.find(r => r.period === period)) {
-            return false;
-        }
-
         this.history.push({ period, number, size, color });
-        if (this.history.length > this.maxHistory) {
-            this.history.shift();
-        }
+        if (this.history.length > this.maxHistory) this.history.shift();
         return true;
     }
 
-    // Advanced Prediction Logic
-    // We want accuracy within 5 levels.
-    // We analyze the last few patterns.
+    // --- STRATEGIES ---
+
+    // 1. Pattern Matcher (Looks for AABB, ABAB, etc.)
+    analyzePattern(results) {
+        if (results.length < 4) return null;
+        const p = results.slice(-4).map(r => r.size); // [S, B, S, B]
+
+        // AABB (S S B B -> Predict B)
+        if (p[0] === p[1] && p[2] === p[3] && p[1] !== p[2]) return p[3]; // Continue pair
+
+        // ABAB (S B S B -> Predict S)
+        if (p[0] !== p[1] && p[1] !== p[2] && p[2] !== p[3]) return p[3] === 'Big' ? 'Small' : 'Big'; // Continue chop
+
+        // AAAB (S S S B -> Predict B) - Break streak
+        // or Dragon start? Context dependent. Let's assume Break for now.
+        return null;
+    }
+
+    // 2. Dragon / Trend (Follow the winner)
+    analyzeTrend(results) {
+        if (results.length < 2) return null;
+        const last = results[results.length - 1].size;
+
+        let streak = 0;
+        for (let i = results.length - 1; i >= 0; i--) {
+            if (results[i].size === last) streak++;
+            else break;
+        }
+
+        if (streak >= 3) return last; // Follow the Dragon
+        if (streak === 1) { // Chop potential
+            const prev = results[results.length - 2].size;
+            if (prev !== last) return null;
+        }
+        return null;
+    }
+
+    // 3. Balance Theory (Regression to Mean)
+    analyzeBalance(results) {
+        if (results.length < 10) return null;
+        const last10 = results.slice(-10);
+        const bigs = last10.filter(r => r.size === 'Big').length;
+        const smalls = 10 - bigs;
+
+        // If heavily skewed, predict reversal
+        if (bigs >= 7) return 'Small';
+        if (smalls >= 7) return 'Big';
+        return null;
+    }
+
     predictNext() {
+        // Fallback for empty history
         if (this.history.length < 5) {
             return {
-                type: 'Random',
                 size: Math.random() > 0.5 ? 'Big' : 'Small',
                 color: Math.random() > 0.5 ? 'Red' : 'Green',
-                reasoning: 'Random guess (insufficient history)',
-                confidence: 'Low (Not enough data)'
+                reasoning: 'Random (Collecting Data)',
+                confidence: 'Low'
             };
         }
 
-        const lastResults = this.history.slice(-10);
+        const lastResults = this.history.slice(-20);
 
-        // Strategy 1: Trend Following (Dragon)
-        // If last 4 are same, predict same.
+        // Voting System
+        let votes = { 'Big': 0, 'Small': 0 };
+        let methods = [];
+
+        // 1. Pattern Vote
+        const pattern = this.analyzePattern(lastResults);
+        if (pattern) {
+            votes[pattern] += 3; // Patterns are strong
+            methods.push(`Pattern(${pattern})`);
+        }
+
+        // 2. Trend Vote
+        const trend = this.analyzeTrend(lastResults);
+        if (trend) {
+            votes[trend] += 2; // Trends are medium
+            methods.push(`Trend(${trend})`);
+        }
+
+        // 3. Balance Vote
+        const balance = this.analyzeBalance(lastResults);
+        if (balance) {
+            votes[balance] += 1; // Weakest, but good tiebreaker
+            methods.push(`Balance(${balance})`);
+        }
+
+        // 4. Inverse (Last Result Flip) - Default "Chaos" vote
         const lastSize = lastResults[lastResults.length - 1].size;
-        let streak = 0;
-        for (let i = lastResults.length - 1; i >= 0; i--) {
-            if (lastResults[i].size === lastSize) streak++;
-            else break;
-        }
+        const inverse = lastSize === 'Big' ? 'Small' : 'Big';
+        votes[inverse] += 0.5; // Very weak tiebreaker
 
-        let predictedSize = '';
-        let reasoning = '';
+        // Determine Winner
+        let predictedSize = votes['Big'] > votes['Small'] ? 'Big' : 'Small';
 
-        if (streak >= 3) {
-            // Dragon Pattern - Follow it
-            predictedSize = lastSize;
-            reasoning = `Dragon trend detected (${streak} ${lastSize}s)`;
-        } else {
-            // Strategy 2: Pattern Breaking / ZigZag
-            // Simple Pattern ABAB
-            const patterns = lastResults.slice(-4).map(r => r.size); // [S, B, S, B]
-            if (patterns[0] !== patterns[1] && patterns[1] !== patterns[2] && patterns[2] !== patterns[3]) {
-                // S B S B -> Predict S (ZigZag)
-                predictedSize = patterns[3] === 'Big' ? 'Small' : 'Big';
-                reasoning = 'ZigZag pattern detected';
-            } else {
-                // Default: Reverse of last if streak is small (1 or 2), or just follow trend?
-                // Let's use simple frequency of last 10.
-                const bigCount = lastResults.filter(r => r.size === 'Big').length;
-                if (bigCount > 5) predictedSize = 'Small'; // Reverse pressure
-                else predictedSize = 'Big';
-                reasoning = 'Probability Balance';
-            }
-        }
+        // Calculate Confidence
+        const totalVotes = votes['Big'] + votes['Small'];
+        const winVotes = votes[predictedSize];
+        const confidenceVal = (winVotes / totalVotes) * 100;
 
-        // Color Prediction (Same logic)
+        let confidenceLvl = 'Low';
+        if (confidenceVal > 65) confidenceLvl = 'Medium';
+        if (confidenceVal > 85) confidenceLvl = 'High';
+
+        // Color Logic (Simple Trend for now)
+        // Can be upgraded similarly, but keeping it simple to save compute/complexity for now.
         const lastColor = lastResults[lastResults.length - 1].color;
-        let colorStreak = 0;
-        for (let i = lastResults.length - 1; i >= 0; i--) {
-            if (lastResults[i].color === lastColor) colorStreak++;
-            else break;
-        }
-
-        let predictedColor = '';
-        if (colorStreak >= 2) {
-            predictedColor = lastColor === 'Red' ? 'Green' : 'Red'; // Break small streaks
-            if (colorStreak > 4) predictedColor = lastColor; // Follow big streaks
-        } else {
-            predictedColor = lastColor === 'Red' ? 'Green' : 'Red';
-        }
+        let predictedColor = Math.random() > 0.5 ? 'Red' : 'Green';
+        if (lastColor === 'Red') predictedColor = 'Red'; // Simple stick
 
         return {
             size: predictedSize,
             color: predictedColor,
-            reasoning: reasoning,
-            confidence: streak > 3 ? 'High' : 'Medium'
+            reasoning: `${methods.join(', ') || 'Probabilistic'}`,
+            confidence: confidenceLvl
         };
     }
 
-    getHistory() {
-        return this.history;
-    }
-
-    clearHistory() {
-        this.history = [];
-    }
+    getHistory() { return this.history; }
+    clearHistory() { this.history = []; }
 }
 
 module.exports = WingoPredictor;
