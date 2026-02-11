@@ -270,7 +270,7 @@ setInterval(() => {
             // ... (Simple ping logging)
         }).on('error', (err) => console.error(`[Keep-Alive] Error: ${err.message}`));
     }
-}, PING_INTERVAL);
+}, 14 * 60 * 1000); // 14 Minutes
 
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 const GAME_API_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json";
