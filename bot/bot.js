@@ -101,16 +101,16 @@ bot.onText(/\/predict/, (msg) => {
     let nextPeriodKey = '1000';
     if (history.length > 0) {
         let lastP = history[history.length - 1].period;
-        nextPeriodKey = (parseInt(lastP) + 1).toString();
+        nextPeriodKey = (BigInt(lastP) + 1n).toString();
     }
 
     // Reset level on manual command or keep? usually manual command implies start fresh or resume.
     // Let's assume resume if state exists, else fresh.
     if (!chatStates[chatId]) {
-        chatStates[chatId] = { currentPeriod: parseInt(nextPeriodKey), currentLevel: 1, lastPrediction: null };
+        chatStates[chatId] = { currentPeriod: nextPeriodKey, currentLevel: 1, lastPrediction: null };
     } else {
         // Update period just in case
-        chatStates[chatId].currentPeriod = parseInt(nextPeriodKey);
+        chatStates[chatId].currentPeriod = nextPeriodKey;
     }
 
     sendPrediction(chatId, nextPeriodKey);
@@ -263,20 +263,107 @@ app.listen(port, () => {
 });
 
 // Keep-Alive Mechanism
-const https = require('https');
-const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
-
 setInterval(() => {
     if (process.env.RENDER_EXTERNAL_URL) {
         console.log(`[Keep-Alive] Pinging ${process.env.RENDER_EXTERNAL_URL}`);
         https.get(process.env.RENDER_EXTERNAL_URL, (res) => {
-            if (res.statusCode === 200) {
-                console.log('[Keep-Alive] Ping successful');
-            } else {
-                console.error(`[Keep-Alive] Ping failed: ${res.statusCode}`);
-            }
-        }).on('error', (err) => {
-            console.error(`[Keep-Alive] Error: ${err.message}`);
-        });
+            // ... (Simple ping logging)
+        }).on('error', (err) => console.error(`[Keep-Alive] Error: ${err.message}`));
     }
 }, PING_INTERVAL);
+
+// --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
+const GAME_API_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json";
+let lastPolledPeriod = BigInt(0);
+
+async function pollGameData() {
+    try {
+        // Add timestamp to prevent caching
+        const url = `${GAME_API_URL}?random=${Date.now()}&language=en`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        // Structure: { data: { list: [ { issueNumber: "2026...", number: "5", ... } ] } }
+
+        if (data && data.data && data.data.list && data.data.list.length > 0) {
+            const latest = data.data.list[0];
+            const periodStr = latest.issueNumber;
+            const resultNum = parseInt(latest.number);
+
+            // Convert to BigInt for comparison
+            const currentPeriodBI = BigInt(periodStr);
+
+            // New Data Detection
+            if (currentPeriodBI > lastPolledPeriod) {
+                if (lastPolledPeriod !== 0n) { // Skip first run (just sync)
+                    console.log(`[Auto-Poll] 🆕 New Result: ${periodStr} -> ${resultNum}`);
+                    processNewResult(periodStr, resultNum);
+                    // Also trigger prediction for next round
+                } else {
+                    console.log(`[Auto-Poll] Subscribed to Stream. Latest: ${periodStr}`);
+                }
+                lastPolledPeriod = currentPeriodBI;
+            }
+        }
+    } catch (error) {
+        console.error(`[Auto-Poll] Error: ${error.message}`);
+    }
+}
+
+// Logic to process result and notify users
+function processNewResult(period, result) {
+    // 1. Add to History
+    predictor.addResult(period, result);
+
+    // 2. Iterate through all active chats and update
+    // Note: This iterates ALL chats that have interacted.
+    // In a real DB we would query active subscriptions.
+    const chatIds = Object.keys(chatStates);
+
+    // Calculate Next Period
+    const nextPeriod = (BigInt(period) + 1n).toString();
+
+    chatIds.forEach(chatId => {
+        let state = chatStates[chatId];
+        if (!state) return; // Inactive
+
+        // Update State
+        const realSize = predictor.getSize(result);
+        let resultParams = "Data Added";
+
+        // Check Win/Loss
+        if (state.lastPrediction) {
+            // If the prediction was for THIS period
+            if (state.currentPeriod.toString() === period) {
+                if (state.lastPrediction.size === realSize) {
+                    // Win
+                    bot.sendMessage(chatId, `✅ *WIN* 🏆 Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
+                    state.currentLevel = 1;
+                } else {
+                    // Loss
+                    bot.sendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
+                    state.currentLevel += 1;
+                    if (state.currentLevel > 5) state.currentLevel = 1;
+                }
+            } else {
+                // Mismatch or catch-up
+                // console.log(`[Debug] Prediction for ${state.currentPeriod} but result is ${period}`);
+            }
+        }
+
+        // Prepare for Next Round
+        state.currentPeriod = nextPeriod;
+        state.lastPrediction = null; // Will be set by sendPrediction
+        chatStates[chatId] = state;
+
+        // Send Next Prediction
+        sendPrediction(chatId, nextPeriod);
+    });
+}
+
+// Start Polling Loop (Every 2 seconds)
+setInterval(pollGameData, 2000);
