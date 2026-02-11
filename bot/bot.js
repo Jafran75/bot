@@ -299,8 +299,8 @@ app.post('/webhook/wingo', (req, res) => {
     res.send({ status: 'ok', next: nextPeriod });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running at http://0.0.0.0:${port}`);
 });
 
 // Keep-Alive Mechanism
