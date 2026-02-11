@@ -1,60 +1,62 @@
-// ==========================================
-// WINGO AUTO-INPUT SCRIPT (For Browser Console)
-// ==========================================
-// 1. Login to bdgwin.com
-// 2. Open Console (F12 -> Console)
-// 3. Paste this entire script and hit Enter.
-// 4. Update the CONFIG below with your details!
-
+/* WINGO 30S BRIDGE - SMART FINDER */
 const CONFIG = {
-    // YOUR Render URL (e.g., https://boot-4xtj.onrender.com)
-    // Make sure to remove the trailing slash
     API_URL: 'https://boot-4xtj.onrender.com',
-
-    // YOUR Telegram Chat ID (Get it from the bot /start message console logs or user info)
-    // Since we don't have it automatically, you must put it here.
-    CHAT_ID: 'YOUR_CHAT_ID_HERE',
-
-    // Selector for the Game Result Number (Right click result -> Inspect to find class)
-    // Example: '.d5-history-number' or whatever class holds the last result.
-    // Adjust this based on the specific site HTML structure.
-    RESULT_SELECTOR: '.GameRecord__C-origin-I',
-    PERIOD_SELECTOR: '.GameRecord__C-origin-I' // Usually closely related
+    CHAT_ID: '6856847067',
+    RESULT_SELECTOR: '.record-body-num' // Proven to work (10 found)
 };
 
-let lastPeriod = '';
+let lastSent = '';
+console.log("🚀 Bridge Started! Searching for Period...");
 
-console.log("🚀 Wingo Bridge Started! Watching for results...");
-
-function checkResult() {
-    // Attempt to find the latest result element
-    // Note: This selector is a guess. You MUST inspect element on the site to get the real class name.
-    // Usually it's a list or a table. We want the top-most (latest) one.
-
-    // Start simple observation
-    // For now, let's assume the user will instruct us on the specific selector or we use a generic observer.
+// Helper: Scan page for long number (Period)
+function findPeriod() {
+    // Strategy 1: Look for common classes (just in case)
+    const candidates = document.querySelectorAll('div, span, p');
+    for (let el of candidates) {
+        const txt = el.innerText;
+        // Check for 10+ digits without spaces in between (like '2026...')
+        const match = txt.match(/\b\d{12,}\b/);
+        if (match) {
+            // Filter out super long text blocks, keep only short labels
+            if (txt.length < 50) return match[0];
+        }
+    }
+    return null;
 }
 
-// SIMULATION MODE (Since we don't know the exact DOM structure yet)
-// Use this to test connectivity first.
-function sendTest() {
-    console.log("Sending Test Data...");
-    fetch(`${CONFIG.API_URL}/webhook/wingo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            period: "20240101001",
-            result: 5,
-            chatId: CONFIG.CHAT_ID
-        })
-    })
-        .then(r => r.json())
-        .then(d => console.log("✅ Bot Response:", d))
-        .catch(e => console.error("❌ Error:", e));
-}
+setInterval(() => {
+    try {
+        // 1. Get Result (We know this selector works)
+        const results = document.querySelectorAll(CONFIG.RESULT_SELECTOR);
 
-// Instructions
-console.log(`
-PLEASE UPDATE 'CHAT_ID' in the script!
-Then run: sendTest() to verify connection.
-`);
+        if (results.length > 0) {
+            const rEl = results[0]; // Top Result
+            const result = rEl.innerText.trim();
+
+            // 2. Find Period (Smart Search)
+            const period = findPeriod();
+
+            if (period) {
+                // Validation: Period changed? Result is 0-9?
+                if (period !== lastSent && /^[0-9]$/.test(result)) {
+                    console.log(`📡 Sending: ${period} -> ${result}`);
+
+                    fetch(`${CONFIG.API_URL}/webhook/wingo`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ period, result, chatId: CONFIG.CHAT_ID })
+                    })
+                        .then(r => r.json())
+                        .then(d => console.log(`✅ Success! Next: ${d.next}`))
+                        .catch(e => console.error("❌ Send Failed:", e));
+
+                    lastSent = period;
+                }
+            } else {
+                // console.log("Waiting for Period number to appear...");
+            }
+        }
+    } catch (e) {
+        console.error("Bridge Error:", e);
+    }
+}, 1000);

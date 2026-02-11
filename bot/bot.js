@@ -204,7 +204,9 @@ bot.on('polling_error', (error) => {
 
 // --- RENDER DEPLOYMENT SUPPORT ---
 const express = require('express');
+const cors = require('cors'); // Import CORS
 const app = express();
+app.use(cors()); // Enable CORS for ALL routes (Allow bdgwin to talk to us)
 app.use(express.json()); // Enable JSON parsing
 const port = process.env.PORT || 3000;
 
