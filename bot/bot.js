@@ -301,6 +301,17 @@ app.post('/webhook/wingo', (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${port}`);
+}).on('error', (err) => {
+    console.error('[Server Error] Failed to start server:', err);
+});
+
+// Global Error Handlers
+process.on('uncaughtException', (err) => {
+    console.error('[Uncaught Exception]', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Unhandled Rejection]', reason);
 });
 
 // Keep-Alive Mechanism
