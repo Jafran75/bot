@@ -9,12 +9,32 @@ const predictor = new WingoPredictor();
 console.log('Bot is starting...');
 
 // State management
+const fs = require('fs');
+const HISTORY_FILE = 'history.json';
+
 const chatStates = {};
 // chatId -> { 
-//   currentPeriod: number, 
+//   currentPeriod: string, 
 //   currentLevel: number (1-5), 
 //   lastPrediction: { size: string, color: string } 
 // }
+
+// Load History from File
+if (fs.existsSync(HISTORY_FILE)) {
+    try {
+        const saved = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+        saved.forEach(h => predictor.addResult(h.period, h.number));
+        console.log(`[Startup] Loaded ${saved.length} rounds from ${HISTORY_FILE} 📂`);
+    } catch (e) {
+        console.error("Error loading history:", e);
+    }
+}
+
+// Function to Save History
+function saveHistory() {
+    const data = predictor.getHistory();
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(data, null, 2));
+}
 
 // Helper Keyboards
 const getResultKeyboard = () => {
@@ -339,6 +359,7 @@ async function pollGameData() {
 function processNewResult(period, result) {
     // 1. Add to History
     predictor.addResult(period, result);
+    saveHistory(); // Save to file 💾
 
     // 2. Iterate through all active chats and update
     // Note: This iterates ALL chats that have interacted.
