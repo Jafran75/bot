@@ -48,7 +48,7 @@ const sendPrediction = (chatId, period) => {
     // Get or Init State
     let state = chatStates[chatId];
     if (!state) {
-        state = { currentPeriod: parseInt(period), currentLevel: 1, lastPrediction: null };
+        state = { currentPeriod: period.toString(), currentLevel: 1, lastPrediction: null };
         chatStates[chatId] = state;
     }
 
@@ -56,7 +56,7 @@ const sendPrediction = (chatId, period) => {
 
     // Save prediction for validation
     state.lastPrediction = prediction;
-    state.currentPeriod = parseInt(period);
+    state.currentPeriod = period.toString(); // Store as String to preserve precision
     chatStates[chatId] = state; // Update global store
 
     // Alert Logic
@@ -89,8 +89,28 @@ Bot will track your 5-Stage strategy automatically.
 
 Commands:
 /predict - Start signals
+/history - Show last 10 results
 /reset - Clear history & Reset Level
     `, { parse_mode: 'Markdown' });
+});
+
+// NEW: History Command
+bot.onText(/\/history/, (msg) => {
+    const chatId = msg.chat.id;
+    const history = predictor.getHistory().slice(-10).reverse(); // Last 10, newest first
+
+    if (history.length === 0) {
+        bot.sendMessage(chatId, "No history yet.");
+        return;
+    }
+
+    let report = "📜 *Last 10 Results:*\n";
+    history.forEach(h => {
+        const size = predictor.getSize(h.number);
+        report += `• ${h.period.slice(-4)}: *${h.number}* (${size})\n`;
+    });
+
+    bot.sendMessage(chatId, report, { parse_mode: 'Markdown' });
 });
 
 bot.onText(/\/predict/, (msg) => {
@@ -98,7 +118,7 @@ bot.onText(/\/predict/, (msg) => {
 
     // Initialize or Resume
     let history = predictor.getHistory();
-    let nextPeriodKey = '1000';
+    let nextPeriodKey = '10250211100000000'; // Default start if empty
     if (history.length > 0) {
         let lastP = history[history.length - 1].period;
         nextPeriodKey = (BigInt(lastP) + 1n).toString();
@@ -142,7 +162,7 @@ bot.on('callback_query', (query) => {
         const number = parseInt(data.split('_')[1]);
 
         let state = chatStates[chatId];
-        if (!state) state = { currentPeriod: 1000, currentLevel: 1, lastPrediction: null };
+        if (!state) state = { currentPeriod: '1000', currentLevel: 1, lastPrediction: null };
 
         const periodStr = state.currentPeriod.toString();
 
@@ -183,11 +203,12 @@ ${resultParams}
         });
 
         // Advance
-        state.currentPeriod += 1;
+        const nextPeriod = (BigInt(periodStr) + 1n).toString();
+        state.currentPeriod = nextPeriod;
         chatStates[chatId] = state;
 
         // Next Prediction
-        sendPrediction(chatId, state.currentPeriod.toString());
+        sendPrediction(chatId, nextPeriod);
     }
 
     // Answer callback
@@ -229,7 +250,7 @@ app.post('/webhook/wingo', (req, res) => {
     // Trigger Next Prediction (Simulate callback)
     // We need to update state and send prediction
     let state = chatStates[chatId];
-    if (!state) state = { currentPeriod: parseInt(period), currentLevel: 1, lastPrediction: null };
+    if (!state) state = { currentPeriod: period.toString(), currentLevel: 1, lastPrediction: null };
 
     // Check Win/Loss Logic
     const number = parseInt(result);
@@ -247,9 +268,9 @@ app.post('/webhook/wingo', (req, res) => {
         }
     }
 
-    // Update Period
-    const nextPeriod = (parseInt(period) + 1).toString();
-    state.currentPeriod = parseInt(nextPeriod);
+    // Update Period (BigInt Fix)
+    const nextPeriod = (BigInt(period) + 1n).toString();
+    state.currentPeriod = nextPeriod;
     chatStates[chatId] = state;
 
     // Send Next Prediction (Async)
