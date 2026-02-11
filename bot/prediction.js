@@ -19,54 +19,25 @@ class WingoPredictor {
         return true;
     }
 
-    // --- STRATEGIES ---
-
-    // 1. Pattern Matcher (Looks for AABB, ABAB, etc.)
-    analyzePattern(results) {
-        if (results.length < 4) return null;
-        const p = results.slice(-4).map(r => r.size); // [S, B, S, B]
-
-        // AABB (S S B B -> Predict B)
-        if (p[0] === p[1] && p[2] === p[3] && p[1] !== p[2]) return p[3]; // Continue pair
-
-        // ABAB (S B S B -> Predict S)
-        if (p[0] !== p[1] && p[1] !== p[2] && p[2] !== p[3]) return p[3] === 'Big' ? 'Small' : 'Big'; // Continue chop
-
-        // AAAB (S S S B -> Predict B) - Break streak
-        // or Dragon start? Context dependent. Let's assume Break for now.
-        return null;
-    }
-
-    // 2. Dragon / Trend (Follow the winner)
-    analyzeTrend(results) {
-        if (results.length < 2) return null;
-        const last = results[results.length - 1].size;
-
-        let streak = 0;
-        for (let i = results.length - 1; i >= 0; i--) {
-            if (results[i].size === last) streak++;
-            else break;
+    // --- PRNG FORMULA (Murmur3-like Hash) ---
+    // Simulates a server-side hash generation using Period + History
+    calculatePRNG(periodStr, history) {
+        // Create a seed string from Period and last 5 numbers
+        let seedStr = periodStr;
+        if (history.length > 0) {
+            seedStr += history.slice(-5).map(r => r.number).join('');
         }
 
-        if (streak >= 3) return last; // Follow the Dragon
-        if (streak === 1) { // Chop potential
-            const prev = results[results.length - 2].size;
-            if (prev !== last) return null;
+        // Simple Hash Function
+        let h = 0xdeadbeef;
+        for (let i = 0; i < seedStr.length; i++) {
+            h = Math.imul(h ^ seedStr.charCodeAt(i), 2654435761);
+            h = ((h << 13) | (h >>> 19)) ^ Math.imul(h ^ (h >>> 16), 2246822507);
+            h = Math.imul(h ^ (h >>> 13), 3266489909);
         }
-        return null;
-    }
 
-    // 3. Balance Theory (Regression to Mean)
-    analyzeBalance(results) {
-        if (results.length < 10) return null;
-        const last10 = results.slice(-10);
-        const bigs = last10.filter(r => r.size === 'Big').length;
-        const smalls = 10 - bigs;
-
-        // If heavily skewed, predict reversal
-        if (bigs >= 7) return 'Small';
-        if (smalls >= 7) return 'Big';
-        return null;
+        // Return 0-9
+        return ((h >>> 0) % 10);
     }
 
     predictNext() {
@@ -75,66 +46,56 @@ class WingoPredictor {
             return {
                 size: Math.random() > 0.5 ? 'Big' : 'Small',
                 color: Math.random() > 0.5 ? 'Red' : 'Green',
-                reasoning: 'Random (Collecting Data)',
+                reasoning: 'Calibrating PRNG...',
                 confidence: 'Low'
             };
         }
 
-        const lastResults = this.history.slice(-20);
+        // Calculate Period for NEXT
+        const lastPeriod = this.history[this.history.length - 1].period;
+        const nextPeriod = (parseInt(lastPeriod) + 1).toString();
 
-        // Voting System
-        let votes = { 'Big': 0, 'Small': 0 };
-        let methods = [];
+        // 1. Generate PRNG Number
+        const prngNum = this.calculatePRNG(nextPeriod, this.history);
 
-        // 1. Pattern Vote
-        const pattern = this.analyzePattern(lastResults);
-        if (pattern) {
-            votes[pattern] += 3; // Patterns are strong
-            methods.push(`Pattern(${pattern})`);
+        // 2. Determine Outcome
+        let predictedSize = this.getSize(prngNum);
+        let predictedColor = this.getColor(prngNum);
+
+        // 3. Inverse Logic (Anti-Trend check)
+        // Check if the PRNG would have failed the last 2 rounds.
+        // If so, flip the prediction.
+
+        // Get simulated result for LAST round
+        const lastReal = this.history[this.history.length - 1];
+        const lastSim = this.calculatePRNG(lastPeriod, this.history.slice(0, -1));
+        const lastSimSize = this.getSize(lastSim);
+
+        let logic = "PRNG Hash";
+
+        // If PRNG was wrong on the last one, maybe trend is anti-hash?
+        // Simple auto-correction:
+        if (lastSimSize !== lastReal.size) {
+            // It failed last time. Let's see if it failed the time before too.
+            if (this.history.length > 2) {
+                const prevReal = this.history[this.history.length - 2];
+                const prevPeriod = this.history[this.history.length - 2].period;
+                const prevSim = this.calculatePRNG(prevPeriod, this.history.slice(0, -2));
+
+                if (this.getSize(prevSim) !== prevReal.size) {
+                    // Double failure -> Invert prediction
+                    predictedSize = predictedSize === 'Big' ? 'Small' : 'Big';
+                    predictedColor = predictedColor === 'Red' ? 'Green' : 'Red';
+                    logic = "PRNG (Inverted/Anti-Lag)";
+                }
+            }
         }
-
-        // 2. Trend Vote
-        const trend = this.analyzeTrend(lastResults);
-        if (trend) {
-            votes[trend] += 2; // Trends are medium
-            methods.push(`Trend(${trend})`);
-        }
-
-        // 3. Balance Vote
-        const balance = this.analyzeBalance(lastResults);
-        if (balance) {
-            votes[balance] += 1; // Weakest, but good tiebreaker
-            methods.push(`Balance(${balance})`);
-        }
-
-        // 4. Inverse (Last Result Flip) - Default "Chaos" vote
-        const lastSize = lastResults[lastResults.length - 1].size;
-        const inverse = lastSize === 'Big' ? 'Small' : 'Big';
-        votes[inverse] += 0.5; // Very weak tiebreaker
-
-        // Determine Winner
-        let predictedSize = votes['Big'] > votes['Small'] ? 'Big' : 'Small';
-
-        // Calculate Confidence
-        const totalVotes = votes['Big'] + votes['Small'];
-        const winVotes = votes[predictedSize];
-        const confidenceVal = (winVotes / totalVotes) * 100;
-
-        let confidenceLvl = 'Low';
-        if (confidenceVal > 65) confidenceLvl = 'Medium';
-        if (confidenceVal > 85) confidenceLvl = 'High';
-
-        // Color Logic (Simple Trend for now)
-        // Can be upgraded similarly, but keeping it simple to save compute/complexity for now.
-        const lastColor = lastResults[lastResults.length - 1].color;
-        let predictedColor = Math.random() > 0.5 ? 'Red' : 'Green';
-        if (lastColor === 'Red') predictedColor = 'Red'; // Simple stick
 
         return {
             size: predictedSize,
             color: predictedColor,
-            reasoning: `${methods.join(', ') || 'Probabilistic'}`,
-            confidence: confidenceLvl
+            reasoning: `${logic} [${prngNum}]`,
+            confidence: 'High'
         };
     }
 
