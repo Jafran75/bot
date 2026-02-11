@@ -205,10 +205,55 @@ bot.on('polling_error', (error) => {
 // --- RENDER DEPLOYMENT SUPPORT ---
 const express = require('express');
 const app = express();
+app.use(express.json()); // Enable JSON parsing
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
     res.send('Wingo Bot is Running! 🚀');
+});
+
+// Payload: { period: "2024...", result: 5, chatId: "12345" }
+app.post('/webhook/wingo', (req, res) => {
+    console.log('[Webhook] Received Data:', req.body);
+    const { period, result, chatId } = req.body;
+
+    if (!period || result === undefined || !chatId) {
+        return res.status(400).send('Missing args');
+    }
+
+    // Add to Logic
+    const added = predictor.addResult(period.toString(), parseInt(result));
+
+    // Trigger Next Prediction (Simulate callback)
+    // We need to update state and send prediction
+    let state = chatStates[chatId];
+    if (!state) state = { currentPeriod: parseInt(period), currentLevel: 1, lastPrediction: null };
+
+    // Check Win/Loss Logic
+    const number = parseInt(result);
+    const realSize = predictor.getSize(number);
+    let resultParams = "Data Added";
+
+    if (state.lastPrediction) {
+        if (state.lastPrediction.size === realSize) {
+            resultParams = "✅ WIN 🏆";
+            state.currentLevel = 1;
+        } else {
+            resultParams = "❌ LOSS";
+            state.currentLevel += 1;
+            if (state.currentLevel > 5) state.currentLevel = 1;
+        }
+    }
+
+    // Update Period
+    const nextPeriod = (parseInt(period) + 1).toString();
+    state.currentPeriod = parseInt(nextPeriod);
+    chatStates[chatId] = state;
+
+    // Send Next Prediction (Async)
+    sendPrediction(chatId, nextPeriod);
+
+    res.send({ status: 'ok', next: nextPeriod });
 });
 
 app.listen(port, () => {

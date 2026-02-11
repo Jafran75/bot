@@ -28,7 +28,8 @@ function save(data) {
         // Use a temp file and rename for safer atomic writes (basic version)
         fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
     } catch (err) {
-        console.error("Error saving DB:", err);
+        console.error("❌ CRTICAL DB ERROR: Failed to save database file:", err.message);
+        console.error("   Ensure the filesystem is writable. Render Free Tier disk is ephemeral but should be writable.");
     }
 }
 
@@ -41,8 +42,27 @@ function getUser(chatId) {
             big_loss: 0,
             small_win: 0,
             small_loss: 0,
+            small_loss: 0,
             current_signal: null, // 'big' or 'small'
-            last_msg_id: null // To edit/remove previous buttons if needed
+            last_msg_id: null, // To edit/remove previous buttons if needed
+            next_period: null,
+            awaiting_period_input: false,
+            // --- LOSS RECOVERY FIELDS ---
+            streak: 0,        // Positive = Win Streak, Negative = Loss Streak
+            balance: 1000,    // Virtual balance for testing
+            history: [],      // Last 10 results (User UI history)
+            recovery_mode: false, // High confidence only
+            cooldown_until: null,  // Timestamp for panic button
+
+            // --- INTELLIGENT ENGINE FIELDS ---
+            game_history: [], // Actual numbers [0, 5, 9, 2...] (Max 200)
+            engine_stats: {
+                markov: { w: 0, l: 0 },
+                dragon: { w: 0, l: 0 },
+                zigzag: { w: 0, l: 0 },
+                mirror: { w: 0, l: 0 },
+                velocity: { w: 0, l: 0 }
+            }
         };
         save(db);
     }
@@ -54,7 +74,7 @@ function updateUser(chatId, updates) {
     const db = load();
     if (!db.users[chatId]) {
         // Initialize if not exists
-        getUser(chatId); 
+        getUser(chatId);
         // Reload to get the structure
         const freshDb = load();
         db.users = freshDb.users;

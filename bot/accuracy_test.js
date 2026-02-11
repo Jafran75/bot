@@ -6,9 +6,9 @@ let wins = 0;
 let losses = 0;
 let currentLevel = 1;
 let maxLevelReached = 1;
-let levelDistribution = { 1: 0, 2: 0, 3: 0, '4+': 0 };
+let levelDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, '6+': 0 };
 
-console.log(`Running Deep Pattern Simulation (3-Level Goal) for ${SIMULATION_ROUNDS} rounds...`);
+console.log(`Running Deep Pattern Simulation (5-Level Goal) for ${SIMULATION_ROUNDS} rounds...`);
 
 // Seed history
 for (let i = 0; i < 50; i++) {
@@ -36,9 +36,9 @@ for (let i = 0; i < SIMULATION_ROUNDS; i++) {
     } else {
         losses++;
         currentLevel++;
-        if (currentLevel > 3) {
-            levelDistribution['4+']++;
-            currentLevel = 1; // BUST at Level 3 (User goal)
+        if (currentLevel > 5) {
+            levelDistribution['6+']++;
+            currentLevel = 1; // BUST at Level 5
         }
         if (currentLevel > maxLevelReached) maxLevelReached = currentLevel;
     }
@@ -47,17 +47,19 @@ for (let i = 0; i < SIMULATION_ROUNDS; i++) {
     predictor.addResult((historyStart + i).toString(), resultNum);
 }
 
-// Logic for 3-Level Survival
-const bustedTimes = levelDistribution['4+'];
+// Logic for 5-Level Survival
+const bustedTimes = levelDistribution['6+'];
 const survivalRate = ((SIMULATION_ROUNDS - bustedTimes) / SIMULATION_ROUNDS) * 100;
 
-console.log("\n--- 10k Round Results (3-Level Hard Cap) ---");
+console.log("\n--- 10k Round Results (5-Level Hard Cap) ---");
 console.log(`Total Rounds: ${SIMULATION_ROUNDS}`);
-console.log(`Survival Rate (No Busts > Level 3): ${survivalRate.toFixed(2)}%`);
+console.log(`Survival Rate (No Busts > Level 5): ${survivalRate.toFixed(2)}%`);
 console.log(`Raw Accuracy: ${((wins / SIMULATION_ROUNDS) * 100).toFixed(2)}%`);
 
 console.log("\nDistribution:");
 console.log(`Stage 1 Win: ${levelDistribution[1]}`);
 console.log(`Stage 2 Win: ${levelDistribution[2]}`);
 console.log(`Stage 3 Win: ${levelDistribution[3]}`);
-console.log(`BUST (Loss 3x): ${bustedTimes}`);
+console.log(`Stage 4 Win: ${levelDistribution[4]}`);
+console.log(`Stage 5 Win: ${levelDistribution[5]}`);
+console.log(`BUST (Loss 5x): ${bustedTimes}`);
