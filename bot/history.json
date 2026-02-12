@@ -79,3 +79,92 @@
     "serverTime": 1770862347258,
     "timeDelta": 29997
   },
+  {
+    "period": "20260212100050266",
+    "number": 5,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862377253,
+    "timeDelta": 29995
+  },
+  {
+    "period": "20260212100050267",
+    "number": 8,
+    "size": "Big",
+    "color": "Red",
+    "serverTime": 1770862407258,
+    "timeDelta": 30005
+  },
+  {
+    "period": "20260212100050268",
+    "number": 9,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862437260,
+    "timeDelta": 30002
+  },
+  {
+    "period": "20260212100050269",
+    "number": 9,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862467263,
+    "timeDelta": 30003
+  },
+  {
+    "period": "20260212100050270",
+    "number": 1,
+    "size": "Small",
+    "color": "Green",
+    "serverTime": 1770862497262,
+    "timeDelta": 29999
+  },
+  {
+    "period": "20260212100050271",
+    "number": 3,
+    "size": "Small",
+    "color": "Green",
+    "serverTime": 1770862527261,
+    "timeDelta": 29999
+  },
+  {
+    "period": "20260212100050272",
+    "number": 9,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862557265,
+    "timeDelta": 30004
+  },
+  {
+    "period": "20260212100050273",
+    "number": 5,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862587265,
+    "timeDelta": 30000
+  },
+  {
+    "period": "20260212100050274",
+    "number": 0,
+    "size": "Small",
+    "color": "Red",
+    "serverTime": 1770862617264,
+    "timeDelta": 29999
+  },
+  {
+    "period": "20260212100050275",
+    "number": 2,
+    "size": "Small",
+    "color": "Red",
+    "serverTime": 1770862647261,
+    "timeDelta": 29997
+  },
+  {
+    "period": "20260212100050276",
+    "number": 6,
+    "size": "Big",
+    "color": "Red",
+    "serverTime": 1770862677266,
+    "timeDelta": 30005
+  }
+]
