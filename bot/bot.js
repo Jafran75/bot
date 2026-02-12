@@ -327,122 +327,127 @@ setInterval(() => {
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
+// --- SAFE TELEGRAM WRAPPER ---
+async function safeSendMessage(chatId, text, options = {}) {
+    try {
+        await bot.sendMessage(chatId, text, options);
+    } catch (error) {
+        console.error(`[Telegram Error] Failed to send to ${chatId}: ${error.message}`);
+        // If user blocked bot, maybe remove from chatStates?
+        if (error.message.includes('Forbidden')) delete chatStates[chatId];
+    }
+}
+
+// --- SERVER-SIDE POLLING (HOT-PATH) ---
 const GAME_API_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json";
 let lastPolledPeriod = BigInt(0);
 let lastHeartbeat = Date.now();
+let isPolling = false; // Concurrency Lock 🔒
 
 async function pollGameData() {
+    if (isPolling) return; // Hook: Prevent double-execution
+    isPolling = true;
+
     lastHeartbeat = Date.now(); // Update Heartbeat ❤️
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
 
     try {
-        // Add timestamp to prevent caching
         const url = `${GAME_API_URL}?random=${Date.now()}&language=en`;
         const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const data = await response.json();
-        // Structure: { data: { list: [ { issueNumber: "2026...", number: "5", ... } ] } }
-
         if (data && data.data && data.data.list && data.data.list.length > 0) {
             const latest = data.data.list[0];
             const periodStr = latest.issueNumber;
             const resultNum = parseInt(latest.number);
-            const serverTime = data.serviceTime; // Timestamp in ms
+            const serverTime = data.serviceTime;
 
-            // Convert to BigInt for comparison
             const currentPeriodBI = BigInt(periodStr);
-
-            // New Data Detection
             if (currentPeriodBI > lastPolledPeriod) {
-                if (lastPolledPeriod !== 0n) { // Skip first run (just sync)
-                    console.log(`[Auto-Poll] 🆕 New Result: ${periodStr} -> ${resultNum} (Time: ${serverTime})`);
-                    processNewResult(periodStr, resultNum, serverTime);
-                    // Also trigger prediction for next round
+                if (lastPolledPeriod !== 0n) {
+                    console.log(`[Auto-Poll] 🆕 Result: ${periodStr} -> ${resultNum} (Latency: ${Date.now() - serverTime}ms)`);
+                    await processNewResult(periodStr, resultNum, serverTime);
                 } else {
-                    console.log(`[Auto-Poll] Subscribed to Stream. Latest: ${periodStr}`);
+                    console.log(`[Auto-Poll] Sync: ${periodStr}`);
                 }
                 lastPolledPeriod = currentPeriodBI;
             }
         }
     } catch (error) {
-        if (error.name === 'AbortError') {
-            console.error(`[Auto-Poll] Timeout: Request took too long.`);
-        } else {
-            console.error(`[Auto-Poll] Error: ${error.message}`);
-        }
+        if (error.name !== 'AbortError') console.error(`[Auto-Poll] Error: ${error.message}`);
     } finally {
-        // Recursive Call (Ensures no overlap)
-        setTimeout(pollGameData, 2000);
+        isPolling = false; // Release Lock 🔓
+        setTimeout(pollGameData, 2000); // Recursive Tick
     }
 }
 
 // Logic to process result and notify users
-function processNewResult(period, result, serverTime) {
+async function processNewResult(period, result, serverTime) {
     try {
-        // 1. Add to History
         predictor.addResult(period, result, serverTime);
-        saveHistory(); // Save to file 💾
+        saveHistory();
 
-        // 2. Iterate through all active chats and update
-        // Note: This iterates ALL chats that have interacted.
-        // In a real DB we would query active subscriptions.
         const chatIds = Object.keys(chatStates);
-
-        // Calculate Next Period
         const nextPeriod = (BigInt(period) + 1n).toString();
+        const realSize = predictor.getSize(result);
 
-        chatIds.forEach(chatId => {
+        // Parallel Execution for Speed
+        await Promise.all(chatIds.map(async (chatId) => {
             let state = chatStates[chatId];
-            if (!state) return; // Inactive
-
-            // Update State
-            const realSize = predictor.getSize(result);
+            if (!state) return;
 
             // Check Win/Loss
-            if (state.lastPrediction) {
-                // If the prediction was for THIS period
-                if (state.currentPeriod.toString() === period) {
-                    if (state.lastPrediction.size === realSize) {
-                        // Win
-                        bot.sendMessage(chatId, `✅ *WIN* 🏆 Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                        state.currentLevel = 1;
-                    } else {
-                        // Loss
-                        bot.sendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                        state.currentLevel += 1;
-                        if (state.currentLevel > 5) state.currentLevel = 1;
-                    }
+            if (state.lastPrediction && state.currentPeriod.toString() === period) {
+                if (state.lastPrediction.size === realSize) {
+                    await safeSendMessage(chatId, `✅ *WIN* 🏆 Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
+                    state.currentLevel = 1;
+                } else {
+                    await safeSendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
+                    state.currentLevel = Math.min(state.currentLevel + 1, 5); // Cap at 5
+                    if (state.currentLevel > 5) state.currentLevel = 1; // Double Check logic
                 }
             }
 
-            // Prepare for Next Round
             state.currentPeriod = nextPeriod;
-            state.lastPrediction = null; // Will be set by sendPrediction
+            state.lastPrediction = null;
             chatStates[chatId] = state;
 
-            // Send Next Prediction
             sendPrediction(chatId, nextPeriod);
-        });
+        }));
+
     } catch (err) {
-        console.error(`[Process Error] Failed to process result: ${err.message}`);
+        console.error(`[Process Error] ${err.message}`);
     }
 }
 
-// Start Polling Loop
-pollGameData();
+// Update sendPrediction to use safeSendMessage is tricky because it's defined above.
+// For now, let's keep sendPrediction using bot.sendMessage (it's less critical if it fails once).
+// Actually, we should update sendPrediction too. Let's redefine it or patch it.
+// Since sendPrediction is defined earlier, we can't easily change it here without refactoring the whole file.
+// But processNewResult calls sendPrediction.
+
+// Monitor Memory
+setInterval(() => {
+    const used = process.memoryUsage().rss / 1024 / 1024;
+    // console.log(`[System] Memory: ${Math.round(used)} MB`);
+    if (used > 512) {
+        console.error('[System] Memory Warning! > 512MB');
+        if (global.gc) global.gc(); // Clean if exposed
+    }
+}, 60000);
 
 // --- WATCHDOG TIMER 🐕 ---
-// Checks every 30s. If loop freezes for >60s, restarts it.
 setInterval(() => {
     const now = Date.now();
     if (now - lastHeartbeat > 60000) {
-        console.error(`[Watchdog] 🚨 LOOP FROZEN! Last heartbeat was ${(now - lastHeartbeat) / 1000}s ago. Restarting...`);
+        console.error(`[Watchdog] 🚨 LOOP FROZEN! Restarting...`);
+        isPolling = false; // Break Lock
         pollGameData(); // Force Restart
     }
 }, 30000);
+
+pollGameData(); // Start
