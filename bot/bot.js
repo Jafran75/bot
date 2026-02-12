@@ -1,4 +1,5 @@
 require('dotenv').config();
+const https = require('https');
 const TelegramBot = require('node-telegram-bot-api');
 const WingoPredictor = require('./prediction');
 
