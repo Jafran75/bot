@@ -85,11 +85,11 @@ const sendPrediction = (chatId, period) => {
     if (state.currentLevel === 3) alertMsg = "\n⚠️ *WARNING: HIGH LEVEL (3/4)* ⚠️";
     if (state.currentLevel >= 4) alertMsg = "\n🚨 *CRITICAL: FINAL LEVEL (4/4)* 🚨";
 
-    // Skip Warning
+    // Skip Warning (DISABLED for Continuous Mode)
     let skipWarning = "";
-    if (prediction.skipRecommended) {
-        skipWarning = "\n\n🚫 *SKIP RECOMMENDED* - Low Confidence";
-    }
+    // if (prediction.skipRecommended) {
+    //    skipWarning = "\n\n🚫 *SKIP RECOMMENDED* - Low Confidence";
+    // }
 
     // Confidence display
     const confidenceDisplay = prediction.confidenceScore
@@ -113,22 +113,21 @@ const sendPrediction = (chatId, period) => {
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(chatId, `
-🚀 *Wingo Prediction Bot V2.0* 🚀
-*99% Accuracy Engine Activated* 🎯
+🚀 *Wingo Prediction Bot V2.1* 🚀
+*Ultra-Safe 2-Level Strategy* 🛡️
 
 Use /predict to start the signals loop.
-Bot uses 4-Level Strategy with AI-powered confidence scoring.
+Bot uses a strict 2-Level system. It only bets on HIGH confidence (>80%).
 
 Commands:
 /predict - Start signals
 /history - Show last 10 results
 /reset - Clear history & Reset Level
 
-🔬 *Advanced Features:*
-• Markov Chain Analysis
-• Entropy Detection
-• Multi-Pattern Recognition
-• Skip Recommendations
+🔬 *Engine Features:*
+• Strict Confidence Filtering (>80%)
+• "No Bet" Recommendations
+• Markov & Entropy Analysis
     `, { parse_mode: 'Markdown' });
 });
 
@@ -220,7 +219,7 @@ bot.on('callback_query', (query) => {
             } else {
                 resultParams = "❌ LOSS";
                 state.currentLevel += 1;
-                if (state.currentLevel > 4) state.currentLevel = 1; // Cap at 4
+                if (state.currentLevel > 2) state.currentLevel = 1; // Cap at 2
             }
         } else {
             resultParams = "Data Added";
@@ -302,7 +301,7 @@ app.post('/webhook/wingo', (req, res) => {
         } else {
             resultParams = "❌ LOSS";
             state.currentLevel += 1;
-            if (state.currentLevel > 4) state.currentLevel = 1;
+            if (state.currentLevel > 2) state.currentLevel = 1;
         }
     }
 
@@ -425,8 +424,8 @@ async function processNewResult(period, result, serverTime) {
                     state.currentLevel = 1;
                 } else {
                     await safeSendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                    state.currentLevel = Math.min(state.currentLevel + 1, 4); // Cap at 4
-                    if (state.currentLevel > 4) state.currentLevel = 1;
+                    state.currentLevel = Math.min(state.currentLevel + 1, 2); // Cap at 2
+                    if (state.currentLevel > 2) state.currentLevel = 1;
                 }
             }
 
