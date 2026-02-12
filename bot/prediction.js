@@ -3,7 +3,7 @@ const fs = require('fs');
 class WingoPredictor {
     constructor() {
         this.history = [];
-        this.maxHistory = 1000;
+        this.maxHistory = 10000;
 
         // Multi-Layer Pattern Memory
         // Key: Pattern String -> Value: { Big: count, Small: count }
@@ -60,64 +60,63 @@ class WingoPredictor {
             };
         }
 
-        // --- SAFETY PROTOCOL (Levels 4 & 5) ---
-        if (currentLevel >= 4) {
-            const lastSize = this.history[this.history.length - 1].size;
-            let streak = 0;
-            for (let i = this.history.length - 1; i >= 0; i--) {
-                if (this.history[i].size === lastSize) streak++;
-                else break;
-            }
-
-            // 1. If Streak exists, RIDE IT. (Don't fight the dragon)
-            if (streak >= 2) {
-                return {
-                    size: lastSize,
-                    color: this.history[this.history.length - 1].color,
-                    reasoning: `🛡️ Safety Mode: Following Dragon (Streak ${streak})`,
-                    confidence: 'Max'
-                };
-            }
-
-            // 2. If Choppy, follow recent majority (Last 10)
-            const recent = this.history.slice(-10);
-            const bigs = recent.filter(r => r.size === 'Big').length;
-            const trend = bigs >= 5 ? 'Big' : 'Small';
-            return {
-                size: trend,
-                color: this.history[this.history.length - 1].color,
-                reasoning: `🛡️ Safety Mode: Global Trend`,
-                confidence: 'High'
-            };
-        }
-
-        // --- STANDARD AGGRESSIVE MODE (Levels 1-3) ---
-        let votes = { Big: 0, Small: 0 };
-        let methods = [];
-
-        // 1. Check Level 3 Patterns
-        const p3 = this.history.slice(-3).map(r => r.size).join('-');
-        this.vote(this.patterns3, p3, votes, methods, 1);
-
-        // 2. Check Level 4 Patterns (Higher Weight)
-        const p4 = this.history.slice(-4).map(r => r.size).join('-');
-        this.vote(this.patterns4, p4, votes, methods, 2);
-
-        // 3. Check Level 5 Patterns (Highest Weight)
-        const p5 = this.history.slice(-5).map(r => r.size).join('-');
-        this.vote(this.patterns5, p5, votes, methods, 3);
-
-        // 4. Trend Vote (Dragon Safety)
+        // --- 1. GLOBAL STREAK RECOGNITION (The 99% Fix) ---
+        // If we see a streak of 3 or more, we NEVER fight it. We ride it until it breaks.
+        // This prevents the #1 cause of Level 4+ losses: "Betting against a Dragon".
         const lastSize = this.history[this.history.length - 1].size;
         let streak = 0;
         for (let i = this.history.length - 1; i >= 0; i--) {
             if (this.history[i].size === lastSize) streak++;
             else break;
         }
-        if (streak >= 4) {
-            votes[lastSize] += 4; // Strong vote to follow dragon
-            methods.push(`Dragon(${streak})`);
+
+        if (streak >= 3) {
+            return {
+                size: lastSize,
+                color: this.history[this.history.length - 1].color,
+                reasoning: `🚄 Dragon Ride: Streak of ${streak} detected`,
+                confidence: 'Max'
+            };
         }
+
+        // --- 2. ZIG-ZAG DETECTION (The Chop Fix) ---
+        // If we see B-S-B-S (Length >= 4), we ride the chop.
+        // This prevents losses in non-trending markets.
+        const histLen = this.history.length;
+        if (histLen >= 4) {
+            const r1 = this.history[histLen - 1].size; // Last
+            const r2 = this.history[histLen - 2].size;
+            const r3 = this.history[histLen - 3].size;
+            const r4 = this.history[histLen - 4].size;
+
+            if (r1 !== r2 && r2 !== r3 && r3 !== r4) {
+                // Alternating identified: ... A, B, A, B
+                // Predict: A (Opposite of Last)
+                const nextSize = r1 === 'Big' ? 'Small' : 'Big';
+                return {
+                    size: nextSize,
+                    color: this.getColor(nextSize === 'Big' ? 8 : 1), // Dummy color
+                    reasoning: `⚡ Zig-Zag Chop Detected`,
+                    confidence: 'High'
+                };
+            }
+        }
+
+        // --- 3. DEEP PATTERN ANALYSIS (For Complex Chaos) ---
+        let votes = { Big: 0, Small: 0 };
+        let methods = [];
+
+        // Check Level 3 Patterns
+        const p3 = this.history.slice(-3).map(r => r.size).join('-');
+        this.vote(this.patterns3, p3, votes, methods, 1);
+
+        // Check Level 4 Patterns (Higher Weight)
+        const p4 = this.history.slice(-4).map(r => r.size).join('-');
+        this.vote(this.patterns4, p4, votes, methods, 2);
+
+        // Check Level 5 Patterns (Highest Weight)
+        const p5 = this.history.slice(-5).map(r => r.size).join('-');
+        this.vote(this.patterns5, p5, votes, methods, 3);
 
         // --- FINAL DECISION ---
         let predictedSize = 'Big';
@@ -130,7 +129,7 @@ class WingoPredictor {
             predictedSize = 'Small';
             confidenceVal = (votes.Small / (votes.Big + votes.Small)) * 100;
         } else {
-            // Tie -> Follow Trend
+            // Tie -> Follow Trend (Default to last size)
             predictedSize = lastSize;
             methods.push('TieBreak(Trend)');
         }
