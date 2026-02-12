@@ -106,8 +106,6 @@ class WingoPredictor {
         let methods = [];
 
         // --- 3. DEEP PATTERN ANALYSIS (For Complex Chaos) ---
-        let votes = { Big: 0, Small: 0 };
-        let methods = [];
 
         // Check Level 3 Patterns (Weight 1)
         const p3 = this.history.slice(-3).map(r => r.size).join('-');
