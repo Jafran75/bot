@@ -3,30 +3,79 @@
     "period": "20260211100052106",
     "number": 4,
     "size": "Small",
-    "color": "Red"
+    "color": "Red",
+    "serverTime": 1770862201659,
+    "timeDelta": 0
   },
   {
     "period": "20260211100052107",
     "number": 1,
     "size": "Small",
-    "color": "Green"
+    "color": "Green",
+    "serverTime": 1770862201659,
+    "timeDelta": 0
   },
   {
     "period": "20260211100052108",
     "number": 5,
     "size": "Big",
-    "color": "Green"
+    "color": "Green",
+    "serverTime": 1770862201659,
+    "timeDelta": 0
   },
   {
     "period": "20260211100052109",
     "number": 0,
     "size": "Small",
-    "color": "Red"
+    "color": "Red",
+    "serverTime": 1770862201659,
+    "timeDelta": 0
   },
   {
     "period": "20260211100052110",
     "number": 2,
     "size": "Small",
-    "color": "Red"
-  }
-]
+    "color": "Red",
+    "serverTime": 1770862201660,
+    "timeDelta": 1
+  },
+  {
+    "period": "20260212100050261",
+    "number": 3,
+    "size": "Small",
+    "color": "Green",
+    "serverTime": 1770862227265,
+    "timeDelta": 25605
+  },
+  {
+    "period": "20260212100050262",
+    "number": 9,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862257261,
+    "timeDelta": 29996
+  },
+  {
+    "period": "20260212100050263",
+    "number": 7,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862287255,
+    "timeDelta": 29994
+  },
+  {
+    "period": "20260212100050264",
+    "number": 6,
+    "size": "Big",
+    "color": "Red",
+    "serverTime": 1770862317261,
+    "timeDelta": 30006
+  },
+  {
+    "period": "20260212100050265",
+    "number": 8,
+    "size": "Big",
+    "color": "Red",
+    "serverTime": 1770862347258,
+    "timeDelta": 29997
+  },

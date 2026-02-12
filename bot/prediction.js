@@ -12,16 +12,33 @@ class WingoPredictor {
         this.patterns5 = {}; // Length 5
         this.patterns6 = {}; // Length 6
         this.patterns7 = {}; // Length 7
+
+        // Key: Number (0-9) -> Value: { Big: count, Small: count }
+        this.numberStats = {};
+        for (let i = 0; i <= 9; i++) this.numberStats[i] = { Big: 0, Small: 0 };
     }
 
     getSize(number) { return number >= 5 ? 'Big' : 'Small'; }
     getColor(number) { return number % 2 === 0 ? 'Red' : 'Green'; }
 
-    addResult(period, number) {
+    addResult(period, number, serverTime = Date.now()) {
         if (this.history.find(r => r.period === period)) return false;
 
         const size = this.getSize(number);
         const color = this.getColor(number);
+
+        // Calculate Time Delta (Lag)
+        let timeDelta = 0;
+        if (this.history.length > 0) {
+            const lastEntry = this.history[this.history.length - 1];
+            const lastTime = lastEntry.serverTime || (serverTime - 30000);
+            timeDelta = serverTime - lastTime;
+
+            // --- NUMBER SIGNATURE UPDATE ---
+            // Update the stats for the *previous* number
+            const prevNum = lastEntry.number;
+            this.numberStats[prevNum][size]++; // size is the CURRENT size
+        }
 
         // --- DEEP LEARNING ---
         // Record patterns of length 3, 4, 5, 6, 7
@@ -31,7 +48,7 @@ class WingoPredictor {
         this.updatePattern(6, size);
         this.updatePattern(7, size);
 
-        this.history.push({ period, number, size, color });
+        this.history.push({ period, number, size, color, serverTime, timeDelta });
         if (this.history.length > this.maxHistory) this.history.shift();
         return true;
     }
@@ -127,6 +144,26 @@ class WingoPredictor {
         const p7 = this.history.slice(-7).map(r => r.size).join('-');
         this.vote(this.patterns7, p7, votes, methods, 16);
 
+        // --- 4. NUMBER SIGNATURE (The "Digit Loophole") ---
+        // Some RNGs have specific behavior after specific numbers (e.g. 7 is followed by Small)
+        const lastNum = this.history[this.history.length - 1].number;
+        const sig = this.numberStats[lastNum];
+        if (sig) {
+            const total = sig.Big + sig.Small;
+            if (total > 5) { // Need some data
+                const bigRate = sig.Big / total;
+                const smallRate = sig.Small / total;
+
+                if (bigRate > 0.65) {
+                    votes.Big += 5; // Weight 5
+                    methods.push(`Sig[${lastNum}➜B]`);
+                } else if (smallRate > 0.65) {
+                    votes.Small += 5; // Weight 5
+                    methods.push(`Sig[${lastNum}➜S]`);
+                }
+            }
+        }
+
         // --- FINAL DECISION ---
         let predictedSize = 'Big';
         let confidenceVal = 0;
@@ -146,10 +183,17 @@ class WingoPredictor {
         // Color Logic (Simple Follow)
         const lastColor = this.history[this.history.length - 1].color;
 
+        // Time Analysis
+        const lastDelta = this.history[this.history.length - 1].timeDelta;
+        let extraReason = "";
+        if (lastDelta > 32000) {
+            extraReason = " + ⚠️ High Server Load (Volatile!)";
+        }
+
         return {
             size: predictedSize,
             color: lastColor,
-            reasoning: methods.slice(0, 3).join(', ') || 'Deep Neural Match',
+            reasoning: (methods.slice(0, 3).join(', ') || 'Deep Neural Match') + extraReason,
             confidence: confidenceVal > 70 ? 'High' : 'Medium'
         };
     }
@@ -173,6 +217,9 @@ class WingoPredictor {
         this.patterns3 = {};
         this.patterns4 = {};
         this.patterns5 = {};
+        this.patterns6 = {};
+        this.patterns7 = {};
+        for (let i = 0; i <= 9; i++) this.numberStats[i] = { Big: 0, Small: 0 };
     }
 }
 

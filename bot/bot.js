@@ -345,6 +345,7 @@ async function pollGameData() {
             const latest = data.data.list[0];
             const periodStr = latest.issueNumber;
             const resultNum = parseInt(latest.number);
+            const serverTime = data.serviceTime; // Timestamp in ms
 
             // Convert to BigInt for comparison
             const currentPeriodBI = BigInt(periodStr);
@@ -352,8 +353,8 @@ async function pollGameData() {
             // New Data Detection
             if (currentPeriodBI > lastPolledPeriod) {
                 if (lastPolledPeriod !== 0n) { // Skip first run (just sync)
-                    console.log(`[Auto-Poll] 🆕 New Result: ${periodStr} -> ${resultNum}`);
-                    processNewResult(periodStr, resultNum);
+                    console.log(`[Auto-Poll] 🆕 New Result: ${periodStr} -> ${resultNum} (Time: ${serverTime})`);
+                    processNewResult(periodStr, resultNum, serverTime);
                     // Also trigger prediction for next round
                 } else {
                     console.log(`[Auto-Poll] Subscribed to Stream. Latest: ${periodStr}`);
@@ -367,9 +368,9 @@ async function pollGameData() {
 }
 
 // Logic to process result and notify users
-function processNewResult(period, result) {
+function processNewResult(period, result, serverTime) {
     // 1. Add to History
-    predictor.addResult(period, result);
+    predictor.addResult(period, result, serverTime);
     saveHistory(); // Save to file 💾
 
     // 2. Iterate through all active chats and update
