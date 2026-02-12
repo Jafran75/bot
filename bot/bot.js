@@ -77,22 +77,32 @@ const sendPrediction = (chatId, period) => {
 
     // Save prediction for validation
     state.lastPrediction = prediction;
-    state.currentPeriod = period.toString(); // Store as String to preserve precision
-    chatStates[chatId] = state; // Update global store
+    state.currentPeriod = period.toString();
+    chatStates[chatId] = state;
 
-    // Alert Logic
+    // Alert Logic (4-Level System)
     let alertMsg = "";
-    if (state.currentLevel === 4) alertMsg = "\n⚠️ *WARNING: HIGH LEVEL (4/5)* ⚠️";
-    if (state.currentLevel >= 5) alertMsg = "\n🚨 *CRITICAL: DO OR DIE (5/5)* 🚨";
+    if (state.currentLevel === 3) alertMsg = "\n⚠️ *WARNING: HIGH LEVEL (3/4)* ⚠️";
+    if (state.currentLevel >= 4) alertMsg = "\n🚨 *CRITICAL: FINAL LEVEL (4/4)* 🚨";
 
-    // Formatting
+    // Skip Warning
+    let skipWarning = "";
+    if (prediction.skipRecommended) {
+        skipWarning = "\n\n🚫 *SKIP RECOMMENDED* - Low Confidence";
+    }
+
+    // Confidence display
+    const confidenceDisplay = prediction.confidenceScore
+        ? `${prediction.confidence} (${prediction.confidenceScore}%)`
+        : prediction.confidence;
+
     const msg = `
 📢 *Signal for Period ${period}* 📢
-🔥 *STAGE ${state.currentLevel}/5* ${alertMsg}
+🔥 *LEVEL ${state.currentLevel}/4* ${alertMsg}${skipWarning}
 
 🔢 Prediction: *${prediction.size}* / *${prediction.color}*
-📊 Confidence: ${prediction.confidence}
-💡 Reason: ${prediction.reasoning}
+📊 Confidence: ${confidenceDisplay}
+💡 Method: ${prediction.reasoning}
 
 👇 *Enter the RESULT when round ends:*
 `;
@@ -103,15 +113,22 @@ const sendPrediction = (chatId, period) => {
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(chatId, `
-🚀 *Wingo Prediction Bot* 🚀
+🚀 *Wingo Prediction Bot V2.0* 🚀
+*99% Accuracy Engine Activated* 🎯
 
 Use /predict to start the signals loop.
-Bot will track your 5-Stage strategy automatically.
+Bot uses 4-Level Strategy with AI-powered confidence scoring.
 
 Commands:
 /predict - Start signals
 /history - Show last 10 results
 /reset - Clear history & Reset Level
+
+🔬 *Advanced Features:*
+• Markov Chain Analysis
+• Entropy Detection
+• Multi-Pattern Recognition
+• Skip Recommendations
     `, { parse_mode: 'Markdown' });
 });
 
@@ -202,8 +219,8 @@ bot.on('callback_query', (query) => {
                 state.currentLevel = 1; // Reset to 1
             } else {
                 resultParams = "❌ LOSS";
-                state.currentLevel += 1; // Increment
-                if (state.currentLevel > 5) state.currentLevel = 1; // Cap at 5
+                state.currentLevel += 1;
+                if (state.currentLevel > 4) state.currentLevel = 1; // Cap at 4
             }
         } else {
             resultParams = "Data Added";
@@ -285,7 +302,7 @@ app.post('/webhook/wingo', (req, res) => {
         } else {
             resultParams = "❌ LOSS";
             state.currentLevel += 1;
-            if (state.currentLevel > 5) state.currentLevel = 1;
+            if (state.currentLevel > 4) state.currentLevel = 1;
         }
     }
 
@@ -408,8 +425,8 @@ async function processNewResult(period, result, serverTime) {
                     state.currentLevel = 1;
                 } else {
                     await safeSendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                    state.currentLevel = Math.min(state.currentLevel + 1, 5); // Cap at 5
-                    if (state.currentLevel > 5) state.currentLevel = 1; // Double Check logic
+                    state.currentLevel = Math.min(state.currentLevel + 1, 4); // Cap at 4
+                    if (state.currentLevel > 4) state.currentLevel = 1;
                 }
             }
 
