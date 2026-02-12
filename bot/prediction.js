@@ -150,10 +150,10 @@ class WingoPredictor {
             scores[lastSize] += 40;
             components.push(`🐉Dragon(${streak})`);
         } else if (streak === 4 || streak === 5) {
-            // Danger Zone. Often breaks here. Bet AGAINST.
-            const inverse = lastSize === 'Big' ? 'Small' : 'Big';
-            scores[inverse] += 20;
-            components.push(`🛡️Break(${streak})`);
+            // DRAGON INCUBATOR - FOLLOW THE TREND
+            // Do NOT bet against it. Wingo often has long streaks.
+            scores[lastSize] += 25;
+            components.push(`🐉Incubator(${streak})`);
         } else if (streak >= 2) {
             // Small streak, follow it.
             scores[lastSize] += 15;

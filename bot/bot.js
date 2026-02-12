@@ -371,7 +371,12 @@ async function pollGameData() {
 
     try {
         const url = `${GAME_API_URL}?random=${Date.now()}&language=en`;
-        const response = await fetch(url, { signal: controller.signal });
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0',
+            'Origin': 'https://www.bdgwin888.com',
+            'Referer': 'https://www.bdgwin888.com/'
+        };
+        const response = await fetch(url, { signal: controller.signal, headers });
         clearTimeout(timeoutId);
 
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
