@@ -10,6 +10,8 @@ class WingoPredictor {
         this.patterns3 = {}; // Length 3
         this.patterns4 = {}; // Length 4
         this.patterns5 = {}; // Length 5
+        this.patterns6 = {}; // Length 6
+        this.patterns7 = {}; // Length 7
     }
 
     getSize(number) { return number >= 5 ? 'Big' : 'Small'; }
@@ -22,10 +24,12 @@ class WingoPredictor {
         const color = this.getColor(number);
 
         // --- DEEP LEARNING ---
-        // Record patterns of length 3, 4, 5
+        // Record patterns of length 3, 4, 5, 6, 7
         this.updatePattern(3, size);
         this.updatePattern(4, size);
         this.updatePattern(5, size);
+        this.updatePattern(6, size);
+        this.updatePattern(7, size);
 
         this.history.push({ period, number, size, color });
         if (this.history.length > this.maxHistory) this.history.shift();
@@ -35,15 +39,10 @@ class WingoPredictor {
     updatePattern(length, resultSize) {
         if (this.history.length >= length) {
             const patternKey = this.history.slice(-length).map(r => r.size).join('-');
-            if (length === 3) {
-                if (!this.patterns3[patternKey]) this.patterns3[patternKey] = { Big: 0, Small: 0 };
-                this.patterns3[patternKey][resultSize]++;
-            } else if (length === 4) {
-                if (!this.patterns4[patternKey]) this.patterns4[patternKey] = { Big: 0, Small: 0 };
-                this.patterns4[patternKey][resultSize]++;
-            } else if (length === 5) {
-                if (!this.patterns5[patternKey]) this.patterns5[patternKey] = { Big: 0, Small: 0 };
-                this.patterns5[patternKey][resultSize]++;
+            const db = this[`patterns${length}`]; // Dynamic Access
+            if (db) {
+                if (!db[patternKey]) db[patternKey] = { Big: 0, Small: 0 };
+                db[patternKey][resultSize]++;
             }
         }
     }
@@ -106,17 +105,29 @@ class WingoPredictor {
         let votes = { Big: 0, Small: 0 };
         let methods = [];
 
-        // Check Level 3 Patterns
+        // --- 3. DEEP PATTERN ANALYSIS (For Complex Chaos) ---
+        let votes = { Big: 0, Small: 0 };
+        let methods = [];
+
+        // Check Level 3 Patterns (Weight 1)
         const p3 = this.history.slice(-3).map(r => r.size).join('-');
         this.vote(this.patterns3, p3, votes, methods, 1);
 
-        // Check Level 4 Patterns (Higher Weight)
+        // Check Level 4 Patterns (Weight 2)
         const p4 = this.history.slice(-4).map(r => r.size).join('-');
         this.vote(this.patterns4, p4, votes, methods, 2);
 
-        // Check Level 5 Patterns (Highest Weight)
+        // Check Level 5 Patterns (Weight 4)
         const p5 = this.history.slice(-5).map(r => r.size).join('-');
-        this.vote(this.patterns5, p5, votes, methods, 3);
+        this.vote(this.patterns5, p5, votes, methods, 4);
+
+        // Check Level 6 Patterns (Weight 8)
+        const p6 = this.history.slice(-6).map(r => r.size).join('-');
+        this.vote(this.patterns6, p6, votes, methods, 8);
+
+        // Check Level 7 Patterns (Weight 16)
+        const p7 = this.history.slice(-7).map(r => r.size).join('-');
+        this.vote(this.patterns7, p7, votes, methods, 16);
 
         // --- FINAL DECISION ---
         let predictedSize = 'Big';
@@ -140,7 +151,7 @@ class WingoPredictor {
         return {
             size: predictedSize,
             color: lastColor,
-            reasoning: methods.slice(0, 3).join(', ') || 'Smart Pattern',
+            reasoning: methods.slice(0, 3).join(', ') || 'Deep Neural Match',
             confidence: confidenceVal > 70 ? 'High' : 'Medium'
         };
     }
