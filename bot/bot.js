@@ -326,10 +326,13 @@ setInterval(() => {
 
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
+// --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 const GAME_API_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json";
 let lastPolledPeriod = BigInt(0);
+let lastHeartbeat = Date.now();
 
 async function pollGameData() {
+    lastHeartbeat = Date.now(); // Update Heartbeat ❤️
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
 
@@ -381,51 +384,65 @@ async function pollGameData() {
 
 // Logic to process result and notify users
 function processNewResult(period, result, serverTime) {
-    // 1. Add to History
-    predictor.addResult(period, result, serverTime);
-    saveHistory(); // Save to file 💾
+    try {
+        // 1. Add to History
+        predictor.addResult(period, result, serverTime);
+        saveHistory(); // Save to file 💾
 
-    // 2. Iterate through all active chats and update
-    // Note: This iterates ALL chats that have interacted.
-    // In a real DB we would query active subscriptions.
-    const chatIds = Object.keys(chatStates);
+        // 2. Iterate through all active chats and update
+        // Note: This iterates ALL chats that have interacted.
+        // In a real DB we would query active subscriptions.
+        const chatIds = Object.keys(chatStates);
 
-    // Calculate Next Period
-    const nextPeriod = (BigInt(period) + 1n).toString();
+        // Calculate Next Period
+        const nextPeriod = (BigInt(period) + 1n).toString();
 
-    chatIds.forEach(chatId => {
-        let state = chatStates[chatId];
-        if (!state) return; // Inactive
+        chatIds.forEach(chatId => {
+            let state = chatStates[chatId];
+            if (!state) return; // Inactive
 
-        // Update State
-        const realSize = predictor.getSize(result);
+            // Update State
+            const realSize = predictor.getSize(result);
 
-        // Check Win/Loss
-        if (state.lastPrediction) {
-            // If the prediction was for THIS period
-            if (state.currentPeriod.toString() === period) {
-                if (state.lastPrediction.size === realSize) {
-                    // Win
-                    bot.sendMessage(chatId, `✅ *WIN* 🏆 Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                    state.currentLevel = 1;
-                } else {
-                    // Loss
-                    bot.sendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                    state.currentLevel += 1;
-                    if (state.currentLevel > 5) state.currentLevel = 1;
+            // Check Win/Loss
+            if (state.lastPrediction) {
+                // If the prediction was for THIS period
+                if (state.currentPeriod.toString() === period) {
+                    if (state.lastPrediction.size === realSize) {
+                        // Win
+                        bot.sendMessage(chatId, `✅ *WIN* 🏆 Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
+                        state.currentLevel = 1;
+                    } else {
+                        // Loss
+                        bot.sendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
+                        state.currentLevel += 1;
+                        if (state.currentLevel > 5) state.currentLevel = 1;
+                    }
                 }
             }
-        }
 
-        // Prepare for Next Round
-        state.currentPeriod = nextPeriod;
-        state.lastPrediction = null; // Will be set by sendPrediction
-        chatStates[chatId] = state;
+            // Prepare for Next Round
+            state.currentPeriod = nextPeriod;
+            state.lastPrediction = null; // Will be set by sendPrediction
+            chatStates[chatId] = state;
 
-        // Send Next Prediction
-        sendPrediction(chatId, nextPeriod);
-    });
+            // Send Next Prediction
+            sendPrediction(chatId, nextPeriod);
+        });
+    } catch (err) {
+        console.error(`[Process Error] Failed to process result: ${err.message}`);
+    }
 }
 
 // Start Polling Loop
 pollGameData();
+
+// --- WATCHDOG TIMER 🐕 ---
+// Checks every 30s. If loop freezes for >60s, restarts it.
+setInterval(() => {
+    const now = Date.now();
+    if (now - lastHeartbeat > 60000) {
+        console.error(`[Watchdog] 🚨 LOOP FROZEN! Last heartbeat was ${(now - lastHeartbeat) / 1000}s ago. Restarting...`);
+        pollGameData(); // Force Restart
+    }
+}, 30000);
