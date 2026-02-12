@@ -325,14 +325,19 @@ setInterval(() => {
 }, 14 * 60 * 1000); // 14 Minutes
 
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
+// --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 const GAME_API_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json";
 let lastPolledPeriod = BigInt(0);
 
 async function pollGameData() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
+
     try {
         // Add timestamp to prevent caching
         const url = `${GAME_API_URL}?random=${Date.now()}&language=en`;
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`API Error: ${response.status}`);
@@ -363,7 +368,14 @@ async function pollGameData() {
             }
         }
     } catch (error) {
-        console.error(`[Auto-Poll] Error: ${error.message}`);
+        if (error.name === 'AbortError') {
+            console.error(`[Auto-Poll] Timeout: Request took too long.`);
+        } else {
+            console.error(`[Auto-Poll] Error: ${error.message}`);
+        }
+    } finally {
+        // Recursive Call (Ensures no overlap)
+        setTimeout(pollGameData, 2000);
     }
 }
 
@@ -387,7 +399,6 @@ function processNewResult(period, result, serverTime) {
 
         // Update State
         const realSize = predictor.getSize(result);
-        let resultParams = "Data Added";
 
         // Check Win/Loss
         if (state.lastPrediction) {
@@ -403,9 +414,6 @@ function processNewResult(period, result, serverTime) {
                     state.currentLevel += 1;
                     if (state.currentLevel > 5) state.currentLevel = 1;
                 }
-            } else {
-                // Mismatch or catch-up
-                // console.log(`[Debug] Prediction for ${state.currentPeriod} but result is ${period}`);
             }
         }
 
@@ -419,5 +427,5 @@ function processNewResult(period, result, serverTime) {
     });
 }
 
-// Start Polling Loop (Every 2 seconds)
-setInterval(pollGameData, 2000);
+// Start Polling Loop
+pollGameData();

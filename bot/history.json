@@ -166,5 +166,37 @@
     "color": "Red",
     "serverTime": 1770862677266,
     "timeDelta": 30005
+  },
+  {
+    "period": "20260212100050277",
+    "number": 9,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862707263,
+    "timeDelta": 29997
+  },
+  {
+    "period": "20260212100050278",
+    "number": 6,
+    "size": "Big",
+    "color": "Red",
+    "serverTime": 1770862737259,
+    "timeDelta": 29996
+  },
+  {
+    "period": "20260212100050279",
+    "number": 2,
+    "size": "Small",
+    "color": "Red",
+    "serverTime": 1770862767265,
+    "timeDelta": 30006
+  },
+  {
+    "period": "20260212100050280",
+    "number": 7,
+    "size": "Big",
+    "color": "Green",
+    "serverTime": 1770862797278,
+    "timeDelta": 30013
   }
 ]
