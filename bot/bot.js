@@ -72,7 +72,7 @@ const sendPrediction = (chatId, period) => {
         chatStates[chatId] = state;
     }
 
-    const prediction = predictor.predictNext();
+    const prediction = predictor.predictNext(state.currentLevel);
 
     // Save prediction for validation
     state.lastPrediction = prediction;
@@ -153,7 +153,7 @@ bot.onText(/\/predict/, (msg) => {
         chatStates[chatId].currentPeriod = nextPeriodKey;
     }
 
-    sendPrediction(chatId, nextPeriodKey);
+    sendPrediction(chatId, nextPeriodKey, state.currentLevel);
 });
 
 bot.onText(/\/reset/, (msg) => {

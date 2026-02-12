@@ -49,7 +49,7 @@ class WingoPredictor {
     }
 
     // --- PREDICTION LOGIC ---
-    predictNext() {
+    predictNext(currentLevel = 1) {
         // Fallback for empty history
         if (this.history.length < 6) {
             return {
@@ -60,6 +60,38 @@ class WingoPredictor {
             };
         }
 
+        // --- SAFETY PROTOCOL (Levels 4 & 5) ---
+        if (currentLevel >= 4) {
+            const lastSize = this.history[this.history.length - 1].size;
+            let streak = 0;
+            for (let i = this.history.length - 1; i >= 0; i--) {
+                if (this.history[i].size === lastSize) streak++;
+                else break;
+            }
+
+            // 1. If Streak exists, RIDE IT. (Don't fight the dragon)
+            if (streak >= 2) {
+                return {
+                    size: lastSize,
+                    color: this.history[this.history.length - 1].color,
+                    reasoning: `🛡️ Safety Mode: Following Dragon (Streak ${streak})`,
+                    confidence: 'Max'
+                };
+            }
+
+            // 2. If Choppy, follow recent majority (Last 10)
+            const recent = this.history.slice(-10);
+            const bigs = recent.filter(r => r.size === 'Big').length;
+            const trend = bigs >= 5 ? 'Big' : 'Small';
+            return {
+                size: trend,
+                color: this.history[this.history.length - 1].color,
+                reasoning: `🛡️ Safety Mode: Global Trend`,
+                confidence: 'High'
+            };
+        }
+
+        // --- STANDARD AGGRESSIVE MODE (Levels 1-3) ---
         let votes = { Big: 0, Small: 0 };
         let methods = [];
 
@@ -85,11 +117,6 @@ class WingoPredictor {
         if (streak >= 4) {
             votes[lastSize] += 4; // Strong vote to follow dragon
             methods.push(`Dragon(${streak})`);
-        } else {
-            // Anti-Trend (ZigZag)
-            if (votes[lastSize] < votes[lastSize === 'Big' ? 'Small' : 'Big']) {
-                // Determine flip
-            }
         }
 
         // --- FINAL DECISION ---
@@ -114,7 +141,7 @@ class WingoPredictor {
         return {
             size: predictedSize,
             color: lastColor,
-            reasoning: methods.slice(0, 3).join(', ') || 'Global Trend',
+            reasoning: methods.slice(0, 3).join(', ') || 'Smart Pattern',
             confidence: confidenceVal > 70 ? 'High' : 'Medium'
         };
     }
