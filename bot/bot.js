@@ -4,7 +4,20 @@ const TelegramBot = require('node-telegram-bot-api');
 const WingoPredictor = require('./prediction');
 
 const token = process.env.BOT_TOKEN;
-const bot = new TelegramBot(token, { polling: true });
+let bot;
+
+if (process.env.RENDER) {
+    // --- PRODUCTION (Render) ---
+    // Use Webhooks to prevent 409 Conflict
+    bot = new TelegramBot(token); // No polling
+    bot.setWebHook(`${process.env.RENDER_EXTERNAL_URL}/bot${token}`);
+    console.log(`[Init] Running in Webhook Mode on Render 🚀`);
+} else {
+    // --- LOCAL (Dev) ---
+    // Use Polling for easy testing
+    bot = new TelegramBot(token, { polling: true });
+    console.log(`[Init] Running in Polling Mode (Local) 💻`);
+}
 const predictor = new WingoPredictor();
 
 console.log('Bot is starting...');
@@ -272,6 +285,12 @@ app.get('/', (req, res) => {
     res.send('Wingo Bot is Running! 🚀');
 });
 
+// --- TELEGRAM WEBHOOK ROUTE ---
+app.post(`/bot${token}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+});
+
 // Payload: { period: "2024...", result: 5, chatId: "12345" }
 app.post('/webhook/wingo', (req, res) => {
     console.log('[Webhook] Received Data:', req.body);
@@ -472,4 +491,9 @@ setInterval(() => {
     }
 }, 30000);
 
-pollGameData(); // Start
+// --- STARTUP SEQUENCE ---
+console.log('[System] Starting Polling Loop...');
+pollGameData(); // Start the Loop
+
+// --- EXPORT FOR TESTS ---
+module.exports = { bot, predictor };
