@@ -219,7 +219,8 @@ class WingoPredictor {
         if (bestPrng) {
             // If a formula is working > 80% of the time recently, FOLLOW IT BLINDLY.
             // This detects if the server is using a simple math seed.
-            const prngPrediction = this.calculatePrng(bestPrng.formulaId, Number(this.history[this.history.length - 1].period) + 1, lastNum, Date.now());
+            const lastEntry = this.history[this.history.length - 1];
+            const prngPrediction = this.calculatePrng(bestPrng.formulaId, Number(lastEntry.period) + 1, lastEntry.number, Date.now());
 
             if (prngPrediction) {
                 scores[prngPrediction] += 50; // Massive Weight

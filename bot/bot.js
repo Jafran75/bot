@@ -183,6 +183,7 @@ bot.onText(/\/predict/, (msg) => {
         chatStates[chatId].currentPeriod = nextPeriodKey;
     }
 
+    const state = chatStates[chatId]; // Fix: Define state
     sendPrediction(chatId, nextPeriodKey, state.currentLevel);
 });
 
