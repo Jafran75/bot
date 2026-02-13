@@ -1,38 +1,32 @@
 const https = require('https');
 
-function getRequest(path, label) {
-    const options = {
-        hostname: 'draw.ar-lottery01.com',
-        path: path,
-        method: 'GET'
+const URL = 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json';
+
+// Fetch Page 1 and Page 2
+const pages = [1, 2];
+const results = {};
+
+function fetchPage(page) {
+    const params = `?pageNo=${page}&pageSize=10&random=${Date.now()}`;
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer': 'https://www.bdgwin888.com/'
     };
 
-    const req = https.request(options, (res) => {
-        let body = '';
-        res.on('data', (chunk) => body += chunk);
+    https.get(`${URL}${params}`, { headers }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
         res.on('end', () => {
-            const preview = body.substring(0, 200);
-            // Check if we got Page 1 data (starts with latest) or Page 2
-            console.log(`[${label}] Status: ${res.statusCode} | Data: ${preview}`);
+            try {
+                const json = JSON.parse(data);
+                if (json.data && json.data.list) {
+                    console.log(`PAGE ${page}: First Item = ${json.data.list[0].issueNumber}`);
+                    results[page] = json.data.list[0].issueNumber;
+                }
+            } catch (e) { console.log(`Page ${page} Error`); }
         });
     });
-
-    req.on('error', (e) => {
-        console.error(`[${label}] Error: ${e.message}`);
-    });
-
-    req.end();
 }
 
-// Baseline
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json', 'Baseline');
-
-// Variations
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?pageNo=2', 'pageNo=2');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?PageNo=2', 'PageNo=2');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?page=2', 'page=2');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?no=2', 'no=2');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?index=2', 'index=2');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?offset=10', 'offset=10');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?start=10', 'start=10');
-getRequest('/WinGo/WinGo_30S/GetHistoryIssuePage.json?size=20', 'size=20');
+fetchPage(1);
+setTimeout(() => fetchPage(2), 1000);
