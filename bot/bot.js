@@ -501,12 +501,7 @@ setInterval(() => {
         // Optional: Could trigger a restart here too if API is known to freeze
     }
 }, 30000);
-if (lastPolledPeriod > 0n && now - lastHeartbeat > 300000) {
-    // Note: lastHeartbeat updates on every poll, so this logic needs to use a different timestamp
-    // Let's rely on the loop freeze check for now.
-    // Actually, we should track 'lastSuccessTime'.
-}
-}, 30000);
+
 
 
 // --- STARTUP SEQUENCE ---
