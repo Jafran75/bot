@@ -351,15 +351,16 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('[Unhandled Rejection]', reason);
 });
 
-// Keep-Alive Mechanism
+// Keep-Alive Mechanism (Prevent Glitch/Render Sleep)
 setInterval(() => {
-    if (process.env.RENDER_EXTERNAL_URL) {
-        console.log(`[Keep-Alive] Pinging ${process.env.RENDER_EXTERNAL_URL}`);
-        https.get(process.env.RENDER_EXTERNAL_URL, (res) => {
+    const appUrl = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL;
+    if (appUrl) {
+        console.log(`[Keep-Alive] Pinging ${appUrl}`);
+        https.get(appUrl, (res) => {
             // ... (Simple ping logging)
         }).on('error', (err) => console.error(`[Keep-Alive] Error: ${err.message}`));
     }
-}, 14 * 60 * 1000); // 14 Minutes
+}, 4 * 60 * 1000); // 4 Minutes (Glitch sleeps after 5)
 
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
