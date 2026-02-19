@@ -1,0 +1,1 @@
+import{aN as t,aO as d,aP as n,aQ as o}from"./common.modules-dc3ca4c4.js";function y(c,r="c4d9e1b54a0c4d3681b98d3f54c0a8e7"){try{const e=t.parse(r),a=d.decrypt(c,e,{mode:n,padding:o}).toString(t);if(a)return JSON.parse(a)}catch{return null}}export{y as a};

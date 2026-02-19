@@ -359,7 +359,7 @@ setInterval(() => {
             // ... (Simple ping logging)
         }).on('error', (err) => console.error(`[Keep-Alive] Error: ${err.message}`));
     }
-}, 14 * 60 * 1000); // 14 Minutes
+}, 5 * 60 * 1000); // 5 Minutes (Aggressive)
 
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
 // --- SERVER-SIDE POLLING (24/7 AUTO-PLAY) ---
@@ -379,6 +379,7 @@ async function safeSendMessage(chatId, text, options = {}) {
 const GAME_API_URL = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json";
 let lastPolledPeriod = BigInt(0);
 let lastHeartbeat = Date.now();
+let lastSuccessTime = Date.now(); // Track actual data changes
 let isPolling = false; // Concurrency Lock 🔒
 
 async function pollGameData() {
@@ -417,6 +418,7 @@ async function pollGameData() {
                     console.log(`[Auto-Poll] Sync: ${periodStr}`);
                 }
                 lastPolledPeriod = currentPeriodBI;
+                lastSuccessTime = Date.now(); // Update Success Timestamp
             }
         }
     } catch (error) {
@@ -485,12 +487,27 @@ setInterval(() => {
 // --- WATCHDOG TIMER 🐕 ---
 setInterval(() => {
     const now = Date.now();
+    // 1. Check Loop Freeze
     if (now - lastHeartbeat > 60000) {
         console.error(`[Watchdog] 🚨 LOOP FROZEN! Restarting...`);
         isPolling = false; // Break Lock
         pollGameData(); // Force Restart
     }
+
+    // 2. Check Stale Data (If no new period for 5 mins)
+    // Only check if we have received at least one period
+    if (lastPolledPeriod > 0n && now - lastSuccessTime > 300000) {
+        console.warn(`[Watchdog] ⚠️ STALE DATA: No new period for 5 minutes. API might be frozen.`);
+        // Optional: Could trigger a restart here too if API is known to freeze
+    }
 }, 30000);
+if (lastPolledPeriod > 0n && now - lastHeartbeat > 300000) {
+    // Note: lastHeartbeat updates on every poll, so this logic needs to use a different timestamp
+    // Let's rely on the loop freeze check for now.
+    // Actually, we should track 'lastSuccessTime'.
+}
+}, 30000);
+
 
 // --- STARTUP SEQUENCE ---
 console.log('[System] Starting Polling Loop...');

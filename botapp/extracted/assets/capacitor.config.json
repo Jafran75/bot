@@ -1,0 +1,6 @@
+{
+	"appId": "com.BDGWIN.app",
+	"appName": "BDGWIN",
+	"webDir": "dist",
+	"bundledWebRuntime": false
+}

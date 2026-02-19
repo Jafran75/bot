@@ -1,0 +1,111 @@
+html,
+body {
+	height: 100%;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	justify-content: center;
+	background-color: #9195a3;
+}
+
+#app {
+	width: 750px;
+	height: fit-content;
+	min-height: 100vh;
+}
+
+.norem-app {
+	width: 375px;
+}
+/* 
+.van-popup.van-popup--bottom {
+	max-width: 750px;
+	left: 50%;
+	transform: translateX(-50%);
+} */
+
+/* @media screen and (min-width: 500px) {
+	
+} */
+@media screen and (max-width: 500px) {
+	#app {
+		width: 100%;
+		min-height: 100vh;
+	}
+
+	/* 滚动条展示 */
+	#app::-webkit-scrollbar {
+		width: 0;
+		/* Remove scrollbar space */
+		background: transparent;
+		/* Optional: just make scrollbar invisible */
+	}
+
+	.van-popup.van-popup--bottom {
+		max-width: none;
+	}
+}
+
+@media (min-width: 501px) {
+	.van-popup.van-popup--bottom {
+		max-width: 750px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	.van-popup.van-popup--center {
+		max-width: 750px;
+	}
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+body #app .game_menu .menu_box1 div span {
+	display: block;
+	text-align: start;
+	width: 100%;
+	padding-inline-start: 20px;
+  }
+  body #app .dailyProfitRank {
+	.title {
+	  color: var(--main-color);
+	}
+  }
+  body #app .luckyWinners__container > h1 {
+	color: var(--main-color)
+  }
+  body #app .dailyProfitRank__content-topThree {
+	background: url('./DailyProfitRankStage.png');
+	background-position: center;
+	background-size: 100%;
+	background-repeat: no-repeat;
+	color: var(--text_color_L4);
+  }
+  body #app .dailyProfitRank__content-topThree__item > span {
+	background: transparent;
+	&:last-of-type{
+	  background: linear-gradient(180deg, #FAE59F 0%, #C4933F 100%);
+	}
+	color: var(--text_color_L4);
+  }
+  body #app .dailyProfitRank__content-list__item span.right-box {
+	background: linear-gradient(180deg, #FAE59F 0%, #C4933F 100%);
+	color: var(--text_color_L4);
+  }
+  body #app .luckyWinners__container-wrapper__item-winAmount h1{
+	color: #FAE59F;
+  }
+  body #app .luckyWinners__container-wrapper__item-info h1 {
+	color: #A6A9AE;
+  }
+
+body #app .bluehome>.btn i{
+	color:#8F5206;
+}
+body #app .bluehome>.btn svg line{
+	stroke:#8F5206;
+}
