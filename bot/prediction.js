@@ -225,7 +225,6 @@ class WingoPredictor {
             if (prngPrediction) {
                 scores[prngPrediction] += 50; // Massive Weight
                 components.push(`🔮PRNG-F${bestPrng.formulaId}`);
-                confidenceScore = 95; // Artificial Boost
             }
         }
 
@@ -244,7 +243,7 @@ class WingoPredictor {
             finalConfidence = 60;
         }
 
-        // Confidence Label Generation (Strict 2-Level Mode)
+        // Confidence Label Generation (No Skip Mode)
         let confidenceLabel = 'Medium';
         let skipRecommended = false;
 
@@ -255,8 +254,8 @@ class WingoPredictor {
         } else if (finalConfidence >= 70) {
             confidenceLabel = 'Medium';
         } else {
-            confidenceLabel = 'Low';
-            skipRecommended = true; // Recommend skipping if < 70% confidence
+            confidenceLabel = 'Volatile'; // Renamed from Low
+            // skipRecommended = false; // NEVER SKIP
         }
 
         return {
@@ -265,7 +264,7 @@ class WingoPredictor {
             reasoning: components.slice(0, 3).join(' + ') || 'StatAnalysis',
             confidence: confidenceLabel,
             confidenceScore: Math.round(finalConfidence),
-            skipRecommended: skipRecommended
+            skipRecommended: false // Force False
         };
     }
 
