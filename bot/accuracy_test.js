@@ -3,11 +3,11 @@ const WingoPredictor = require('./prediction');
 const predictor = new WingoPredictor();
 const TOTAL_ROUNDS = 10000;
 
-console.log(`\n🚀 Simulating ${TOTAL_ROUNDS} Rounds with 2-Level Ultra-Safe Strategy...`);
+console.log(`\n🚀 Simulating ${TOTAL_ROUNDS} Rounds with 4-Level Quantum Resonance Strategy...`);
 
 let wins = 0;
 let losses = 0;
-let busts = 0; // Failed Level 2
+let busts = 0; // Failed Level 4
 let maxLevel = 1;
 let currentLevel = 1;
 let history = [];
@@ -32,16 +32,11 @@ for (let i = 100; i < TOTAL_ROUNDS + 100; i++) {
     // Make Prediction with Level Awareness
     const prediction = predictor.predictNext(currentLevel);
 
-    // Track skip recommendations
+    // Track skip recommendations (should be false in V13)
     if (prediction.skipRecommended) {
         skipCount++;
-        // If we are Level 1, we can skip.
-        // If we are Level 2, we MUST play (Martingale rules usually force recovery, 
-        // but for safety we might skip? Let's assume we skip only at Level 1 to start a chain)
-        if (currentLevel === 1) {
-            predictor.addResult(target.period, target.number);
-            continue;
-        }
+        predictor.addResult(target.period, target.number);
+        continue;
     }
 
     // Check Result
@@ -56,7 +51,7 @@ for (let i = 100; i < TOTAL_ROUNDS + 100; i++) {
         currentLevel++;
         if (currentLevel > maxLevel) maxLevel = currentLevel;
 
-        if (currentLevel > 2) {
+        if (currentLevel > 4) {
             busts++;
             currentLevel = 1; // Reset after bust
         }
@@ -73,10 +68,10 @@ console.log(`\n📊 RESULTS:`);
 console.log(`-----------------------------`);
 console.log(`✅ Wins: ${wins}`);
 console.log(`❌ Losses: ${losses}`);
-console.log(`💀 BUSTS (Level 2 Loss): ${busts}`);
+console.log(`💀 BUSTS (Level 4 Loss): ${busts}`);
 console.log(`🚫 Skip Recommended: ${skipCount}`);
 console.log(`-----------------------------`);
-console.log(`🛡️ Survival Rate (2-Level): ${survivalRate}%`);
+console.log(`🛡️ Survival Rate (4-Level): ${survivalRate}%`);
 console.log(`📈 Win Rate: ${winRate}%`);
 console.log(`🔥 Max Level Reached: ${maxLevel}`);
 console.log(`-----------------------------`);

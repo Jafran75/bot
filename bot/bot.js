@@ -126,21 +126,21 @@ const sendPrediction = (chatId, period) => {
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(chatId, `
-🚀 *Wingo Prediction Bot V2.1* 🚀
-*Ultra-Safe 2-Level Strategy* 🛡️
+🚀 *Wingo Prediction Bot V13* 🚀
+*Quantum Resonance 4-Level Strategy* 🛡️
 
 Use /predict to start the signals loop.
-Bot uses a strict 2-Level system. It only bets on HIGH confidence (>80%).
+Bot uses a strict 4-Level system with consensus filters.
 
 Commands:
 /predict - Start signals
 /history - Show last 10 results
-/reset - Clear history & Reset Level
+/reset   - Clear history & Reset Level
 
 🔬 *Engine Features:*
-• Strict Confidence Filtering (>80%)
-• "No Bet" Recommendations
-• Markov & Entropy Analysis
+• Quantum Resonance Consensus
+• Adaptive 4-Level Recovery
+• Server PRNG Synchronization
     `, { parse_mode: 'Markdown' });
 });
 
@@ -233,7 +233,7 @@ bot.on('callback_query', (query) => {
             } else {
                 resultParams = "❌ LOSS";
                 state.currentLevel += 1;
-                if (state.currentLevel > 2) state.currentLevel = 1; // Cap at 2
+                if (state.currentLevel > 4) state.currentLevel = 1; // Cap at 4
             }
         } else {
             resultParams = "Data Added";
@@ -321,7 +321,7 @@ app.post('/webhook/wingo', (req, res) => {
         } else {
             resultParams = "❌ LOSS";
             state.currentLevel += 1;
-            if (state.currentLevel > 2) state.currentLevel = 1;
+            if (state.currentLevel > 4) state.currentLevel = 1;
         }
     }
 
@@ -451,8 +451,8 @@ async function processNewResult(period, result, serverTime) {
                     state.currentLevel = 1;
                 } else {
                     await safeSendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                    state.currentLevel = Math.min(state.currentLevel + 1, 2); // Cap at 2
-                    if (state.currentLevel > 2) state.currentLevel = 1;
+                    state.currentLevel = Math.min(state.currentLevel + 1, 4); // Cap at 4
+                    if (state.currentLevel > 4) state.currentLevel = 1;
                 }
             }
 
