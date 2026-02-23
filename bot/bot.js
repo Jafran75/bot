@@ -126,11 +126,11 @@ const sendPrediction = (chatId, period) => {
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(chatId, `
-🚀 *Wingo Prediction Bot V14* 🚀
-*Titan 3-Level Strategy* 🛡️
+🚀 *Wingo Prediction Bot V15* 🚀
+*Chronos Deep Memory Strategy* 🛡️
 
 Use /predict to start the signals loop.
-Bot uses a strict 3-Level Titan Consensus system.
+Bot uses V15 Deep Memory & Pattern Analysis.
 
 Commands:
 /predict - Start signals
@@ -138,9 +138,9 @@ Commands:
 /reset   - Clear history & Reset Level
 
 🔬 *Engine Features:*
-• Titan Consensus Engine
-• Extreme 3-Level Recovery
-• Quantum PRNG Pulse
+• Chronos Deep Memory Engine
+• 100,000+ Round History Logic
+• Long-Tail Pattern Analysis (L3-L8)
     `, { parse_mode: 'Markdown' });
 });
 

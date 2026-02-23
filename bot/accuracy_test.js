@@ -1,9 +1,9 @@
 const WingoPredictor = require('./prediction');
 
 const predictor = new WingoPredictor();
-const TOTAL_ROUNDS = 10000;
+const TOTAL_ROUNDS = 20000;
 
-console.log(`\n🚀 Simulating ${TOTAL_ROUNDS} Rounds with 3-Level Titan Strategy...`);
+console.log(`\n🚀 Simulating ${TOTAL_ROUNDS} Rounds with V15 Chronos Deep Memory Strategy...`);
 
 let wins = 0;
 let losses = 0;

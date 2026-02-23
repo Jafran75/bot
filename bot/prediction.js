@@ -3,7 +3,7 @@ const fs = require('fs');
 class WingoPredictor {
     constructor() {
         this.history = [];
-        this.maxHistory = 10000;
+        this.maxHistory = 100000;
 
         // Multi-Layer Pattern Memory
         this.patterns3 = {};
@@ -11,17 +11,27 @@ class WingoPredictor {
         this.patterns5 = {};
         this.patterns6 = {};
         this.patterns7 = {};
+        this.patterns8 = {};
 
         // Number Signature Stats
         this.numberStats = {};
         for (let i = 0; i <= 9; i++) this.numberStats[i] = { Big: 0, Small: 0 };
 
-        // Markov Chain Transition Matrix
         this.markov = {
             'Big->Big': 0,
             'Big->Small': 0,
             'Small->Big': 0,
             'Small->Small': 0
+        };
+
+        // Self-Optimization Weights (Win Rates per Source)
+        this.sourceAccuracy = {
+            'TitanTrend': { wins: 0, total: 0 },
+            'MarkovNext': { wins: 0, total: 0 },
+            'PatternV': { wins: 0, total: 0 },
+            'TitanPulse': { wins: 0, total: 0 },
+            'DeepMemory': { wins: 0, total: 0 },
+            'TitanCORE': { wins: 0, total: 0 }
         };
     }
 
@@ -57,8 +67,25 @@ class WingoPredictor {
         this.updatePattern(5, size);
         this.updatePattern(6, size);
         this.updatePattern(7, size);
+        this.updatePattern(8, size);
 
         this.history.push({ period, number, size, color, serverTime, timeDelta });
+
+        // Update Source Accuracy
+        if (this.lastPredictionSources && this.lastPredictionSide) {
+            const won = (this.lastPredictionSide === size);
+            this.lastPredictionSources.forEach(source => {
+                // Normalize source name (e.g. PatternV7 -> PatternV)
+                let key = source;
+                if (source.startsWith('PatternV')) key = 'PatternV';
+
+                if (this.sourceAccuracy[key]) {
+                    this.sourceAccuracy[key].total++;
+                    if (won) this.sourceAccuracy[key].wins++;
+                }
+            });
+        }
+
         if (this.history.length > this.maxHistory) this.history.shift();
         return true;
     }
@@ -102,10 +129,19 @@ class WingoPredictor {
         const lastEntry = this.history[this.history.length - 1];
         const isChoppy = this.isChoppy();
 
-        // --- V14 TITAN CONSENSUS ENGINE ---
+        // --- V15 CHRONOS CONSENSUS ENGINE ---
         let votes = { Big: [], Small: [] };
 
-        const castVote = (side, weight, source) => {
+        const getSourceWeight = (source) => {
+            let key = source;
+            if (source.startsWith('PatternV')) key = 'PatternV';
+            const stats = this.sourceAccuracy[key];
+            if (!stats || stats.total < 10) return 1.0;
+            return (stats.wins / stats.total) * 2; // Double weight if 100% accurate, 1x if 50%
+        };
+
+        const castVote = (side, baseWeight, source) => {
+            const weight = Math.round(baseWeight * getSourceWeight(source));
             for (let i = 0; i < weight; i++) votes[side].push(source);
         };
 
@@ -178,6 +214,13 @@ class WingoPredictor {
             castVote(pred, 120, 'TitanPulse');
         }
 
+        // 6. CHRONOS DEEP MEMORY SEARCH
+        const deepMatch = this.searchDeepMemory(5);
+        if (deepMatch && deepMatch.probability > 60) {
+            const weight = Math.min(deepMatch.count, 50); // Cap weight contribution
+            castVote(deepMatch.side, weight, 'DeepMemory');
+        }
+
         // --- FINAL TITAN DECISION ---
         const bigScore = votes.Big.length;
         const smallScore = votes.Small.length;
@@ -201,6 +244,10 @@ class WingoPredictor {
             confidence = 80;
         }
 
+        // Store for next addResult to calibrate accuracy
+        this.lastPredictionSide = predictedSize;
+        this.lastPredictionSources = sources;
+
         return {
             size: predictedSize,
             color: predictedSize === 'Big' ? 'Green' : 'Red',
@@ -209,6 +256,43 @@ class WingoPredictor {
             confidenceScore: Math.round(confidence),
             skipRecommended: false
         };
+    }
+
+    // --- CHRONOS DEEP MEMORY ENGINE ---
+    searchDeepMemory(length = 5) {
+        if (this.history.length < length + 1) return null;
+
+        const currentSeq = this.history.slice(-length).map(r => r.size);
+        let matches = { Big: 0, Small: 0 };
+        let totalMatches = 0;
+
+        const searchDepth = 50000;
+        const startIndex = this.history.length - length - 1;
+        const endIndex = Math.max(0, this.history.length - searchDepth);
+
+        for (let i = startIndex; i >= endIndex; i--) {
+            let match = true;
+            for (let j = 0; j < length; j++) {
+                if (this.history[i + j].size !== currentSeq[j]) {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match) {
+                const nextResult = this.history[i + length].size;
+                matches[nextResult]++;
+                totalMatches++;
+                if (totalMatches >= 1000) break;
+            }
+        }
+
+        if (totalMatches === 0) return null;
+
+        const side = matches.Big >= matches.Small ? 'Big' : 'Small';
+        const probability = (matches[side] / totalMatches) * 100;
+
+        return { side, probability, count: totalMatches };
     }
 
     // --- PRNG ENGINE ---
@@ -360,6 +444,7 @@ class WingoPredictor {
         this.patterns5 = {};
         this.patterns6 = {};
         this.patterns7 = {};
+        this.patterns8 = {};
         for (let i = 0; i <= 9; i++) this.numberStats[i] = { Big: 0, Small: 0 };
         this.markov = { 'Big->Big': 0, 'Big->Small': 0, 'Small->Big': 0, 'Small->Small': 0 };
     }
