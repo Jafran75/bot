@@ -93,10 +93,10 @@ const sendPrediction = (chatId, period) => {
     state.currentPeriod = period.toString();
     chatStates[chatId] = state;
 
-    // Alert Logic (4-Level System)
+    // Alert Logic (3-Level System)
     let alertMsg = "";
-    if (state.currentLevel === 3) alertMsg = "\n⚠️ *WARNING: HIGH LEVEL (3/4)* ⚠️";
-    if (state.currentLevel >= 4) alertMsg = "\n🚨 *CRITICAL: FINAL LEVEL (4/4)* 🚨";
+    if (state.currentLevel === 2) alertMsg = "\n⚠️ *WARNING: TITAN LEVEL (2/3)* ⚠️";
+    if (state.currentLevel >= 3) alertMsg = "\n🚨 *CRITICAL: FINAL STAND (3/3)* 🚨";
 
     // Skip Warning (DISABLED for Continuous Mode)
     let skipWarning = "";
@@ -111,7 +111,7 @@ const sendPrediction = (chatId, period) => {
 
     const msg = `
 📢 *Signal for Period ${period}* 📢
-🔥 *LEVEL ${state.currentLevel}/4* ${alertMsg}${skipWarning}
+🔥 *LEVEL ${state.currentLevel}/3* ${alertMsg}${skipWarning}
 
 🔢 Prediction: *${prediction.size}* / *${prediction.color}*
 📊 Confidence: ${confidenceDisplay}
@@ -126,11 +126,11 @@ const sendPrediction = (chatId, period) => {
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(chatId, `
-🚀 *Wingo Prediction Bot V13* 🚀
-*Quantum Resonance 4-Level Strategy* 🛡️
+🚀 *Wingo Prediction Bot V14* 🚀
+*Titan 3-Level Strategy* 🛡️
 
 Use /predict to start the signals loop.
-Bot uses a strict 4-Level system with consensus filters.
+Bot uses a strict 3-Level Titan Consensus system.
 
 Commands:
 /predict - Start signals
@@ -138,9 +138,9 @@ Commands:
 /reset   - Clear history & Reset Level
 
 🔬 *Engine Features:*
-• Quantum Resonance Consensus
-• Adaptive 4-Level Recovery
-• Server PRNG Synchronization
+• Titan Consensus Engine
+• Extreme 3-Level Recovery
+• Quantum PRNG Pulse
     `, { parse_mode: 'Markdown' });
 });
 
@@ -233,7 +233,7 @@ bot.on('callback_query', (query) => {
             } else {
                 resultParams = "❌ LOSS";
                 state.currentLevel += 1;
-                if (state.currentLevel > 4) state.currentLevel = 1; // Cap at 4
+                if (state.currentLevel > 3) state.currentLevel = 1; // Cap at 3
             }
         } else {
             resultParams = "Data Added";
@@ -321,7 +321,7 @@ app.post('/webhook/wingo', (req, res) => {
         } else {
             resultParams = "❌ LOSS";
             state.currentLevel += 1;
-            if (state.currentLevel > 4) state.currentLevel = 1;
+            if (state.currentLevel > 3) state.currentLevel = 1;
         }
     }
 
@@ -451,8 +451,8 @@ async function processNewResult(period, result, serverTime) {
                     state.currentLevel = 1;
                 } else {
                     await safeSendMessage(chatId, `❌ *LOSS* Result: ${result} (${realSize})`, { parse_mode: 'Markdown' });
-                    state.currentLevel = Math.min(state.currentLevel + 1, 4); // Cap at 4
-                    if (state.currentLevel > 4) state.currentLevel = 1;
+                    state.currentLevel = Math.min(state.currentLevel + 1, 3); // Cap at 3
+                    if (state.currentLevel > 3) state.currentLevel = 1;
                 }
             }
 

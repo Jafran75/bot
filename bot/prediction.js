@@ -88,11 +88,11 @@ class WingoPredictor {
 
     // === PREDICTION LOGIC (Level 1 & 2 Optimization) ===
     predictNext(currentLevel = 1) {
-        if (this.history.length < 10) {
+        if (this.history.length < 15) {
             return {
                 size: Math.random() > 0.5 ? 'Big' : 'Small',
                 color: 'Red',
-                reasoning: '🔄 Calibrating V13',
+                reasoning: '🔄 Titan Calibration',
                 confidence: 'Medium',
                 skipRecommended: false
             };
@@ -102,38 +102,39 @@ class WingoPredictor {
         const lastEntry = this.history[this.history.length - 1];
         const isChoppy = this.isChoppy();
 
-        // --- V13 QUANTUM RESONANCE CONSENSUS ENGINE ---
-        let votes = { Big: [], Small: [] }; // Track source of votes
+        // --- V14 TITAN CONSENSUS ENGINE ---
+        let votes = { Big: [], Small: [] };
 
         const castVote = (side, weight, source) => {
             for (let i = 0; i < weight; i++) votes[side].push(source);
         };
 
-        // 1. STREAK HANDLING (Dynamic Dragon)
+        // 1. ADVANCED STREAK (Titan Trend)
         let streak = 0;
         for (let i = this.history.length - 1; i >= 0; i--) {
             if (this.history[i].size === lastSize) streak++;
             else break;
         }
 
-        if (streak >= 5) {
-            castVote(lastSize, 40, 'Dragon');
-        } else if (streak === 3 || streak === 4) {
-            if (isChoppy) castVote(lastSize === 'Big' ? 'Small' : 'Big', 30, 'ChopFlip');
-            else castVote(lastSize, 25, 'TrendFollow');
+        // Titan Rule: Rides trends harder, breaks traps faster
+        if (streak >= 4) {
+            castVote(lastSize, 50, 'TitanTrend');
+        } else if (streak === 2 || streak === 3) {
+            if (isChoppy) castVote(lastSize === 'Big' ? 'Small' : 'Big', 40, 'TitanChop');
+            else castVote(lastSize, 30, 'Momentum');
         }
 
-        // 2. MARKOV TRANSITIONS
+        // 2. DEEP MARKOV (Titan Transition)
         const fromLast = lastSize;
         const toBig = this.markov[`${fromLast}->Big`] || 0;
         const toSmall = this.markov[`${fromLast}->Small`] || 0;
         const sum = toBig + toSmall;
         if (sum > 10) {
-            if (toBig / sum > 0.6) castVote('Big', 35, 'Markov');
-            else if (toSmall / sum > 0.6) castVote('Small', 35, 'Markov');
+            if (toBig / sum > 0.65) castVote('Big', 40, 'MarkovNext');
+            else if (toSmall / sum > 0.65) castVote('Small', 40, 'MarkovNext');
         }
 
-        // 3. PATTERN RECOGNITION (P4 to P7)
+        // 3. MULTI-LAYER PATTERNS (P4 to P7)
         const pKeys = {
             p7: this.history.slice(-7).map(r => r.size).join('-'),
             p6: this.history.slice(-6).map(r => r.size).join('-'),
@@ -149,50 +150,62 @@ class WingoPredictor {
                 const total = stats.Big + stats.Small;
                 if (total >= 5) {
                     const side = stats.Big > stats.Small ? 'Big' : 'Small';
-                    const weight = len * 8; // Longer patterns get more weight
-                    castVote(side, weight, `P${len}`);
-                    break; // Only use longest valid pattern
+                    const ratio = Math.max(stats.Big, stats.Small) / total;
+                    if (ratio > 0.6) {
+                        castVote(side, len * 10, `PatternV${len}`);
+                        break;
+                    }
                 }
             }
         }
 
-        // 4. LEVEL-SPECIFIC ADAPTATION
-        if (currentLevel >= 3) {
-            // Emergency Reversal Check: If we lost 2 times on the same side, perhaps the market flipped.
-            const recent3 = this.history.slice(-3).map(r => r.size);
-            if (recent3.every(s => s === recent3[0])) {
-                // Large trend. Level 3+ ALWAYS rides the trend if it started.
-                castVote(recent3[0], 60, 'EmergencyTrend');
+        // 4. LEVEL-SPECIFIC TIGHTENING (Titan Guard)
+        if (currentLevel >= 2) {
+            // If we are recovering, we MUST detect trend flips.
+            const recent4 = this.history.slice(-4).map(r => r.size);
+            const alternateSide = lastSize === 'Big' ? 'Small' : 'Big';
+
+            // If it's zigzagging (B-S-B-S), follow the zigzag
+            if (recent4[0] !== recent4[1] && recent4[1] !== recent4[2] && recent4[2] !== recent4[3]) {
+                castVote(alternateSide, 60, 'ZigZagSync');
             }
         }
 
-        // 5. SERVER PRNG SYNC (Highest Priority)
+        // 5. QUANTUM PRNG PULSE
         const bestPrng = this.calibratePrng();
         if (bestPrng) {
             const pred = this.calculatePrng(bestPrng.formulaId, Number(lastEntry.period) + 1, lastEntry.number, Date.now());
-            castVote(pred, 100, 'QuantumPulse');
+            castVote(pred, 120, 'TitanPulse');
         }
 
-        // --- CALCULATION ---
+        // --- FINAL TITAN DECISION ---
         const bigScore = votes.Big.length;
         const smallScore = votes.Small.length;
         let predictedSize = bigScore >= smallScore ? 'Big' : 'Small';
         let totalScore = bigScore + smallScore;
         let confidence = totalScore > 0 ? (Math.max(bigScore, smallScore) / totalScore) * 100 : 50;
 
-        // Consensus Check for L3/L4
+        // --- TITAN CONSENSUS CHECK ---
         const sources = [...new Set(votes[predictedSize])];
-        if (currentLevel >= 3 && sources.length < 2 && !bestPrng) {
-            // Low consensus at high level? Flip to opposite of last logic to catch "The Squeeze"
+
+        // Level 2: Requires 3+ Sources
+        if (currentLevel === 2 && sources.length < 3 && !bestPrng) {
+            predictedSize = lastSize === 'Big' ? 'Small' : 'Big'; // Pivot
+            confidence = 70;
+        }
+
+        // Level 3: Requires 4+ Sources (Extreme Conservative)
+        if (currentLevel >= 3 && sources.length < 4 && !bestPrng) {
+            // If no 4-source consensus, default to PRNG or Reversal
             predictedSize = lastSize === 'Big' ? 'Small' : 'Big';
-            confidence = 65;
+            confidence = 80;
         }
 
         return {
             size: predictedSize,
             color: predictedSize === 'Big' ? 'Green' : 'Red',
-            reasoning: sources.join(' + ') || 'QuantumResonance',
-            confidence: confidence >= 90 ? 'Ultra' : confidence >= 75 ? 'High' : 'Volatile',
+            reasoning: sources.join(' + ') || 'TitanCORE',
+            confidence: confidence >= 95 ? 'GOD-MODE' : confidence >= 85 ? 'TITAN' : 'ELITE',
             confidenceScore: Math.round(confidence),
             skipRecommended: false
         };
