@@ -144,43 +144,54 @@ const sumInput = document.getElementById('manual-sum');
 const submitBtn = document.getElementById('manual-submit');
 
 submitBtn.addEventListener('click', () => {
-    let sum = parseInt(sumInput.value);
+    try {
+        let sum = parseInt(sumInput.value);
 
-    if (isNaN(sum) || sum < 3 || sum > 18) {
-        alert("Please enter a valid total sum between 3 and 18.");
-        return;
+        if (isNaN(sum) || sum < 3 || sum > 18) {
+            alert("Please enter a valid total sum between 3 and 18.");
+            return;
+        }
+
+        let d1 = Math.floor(sum / 3);
+        let d2 = Math.floor((sum - d1) / 2);
+        let d3 = sum - d1 - d2;
+
+        if (d1 < 1) d1 = 1; if (d1 > 6) d1 = 6;
+        if (d2 < 1) d2 = 1; if (d2 > 6) d2 = 6;
+        if (d3 < 1) d3 = 1; if (d3 > 6) d3 = 6;
+
+        const actualSum = d1 + d2 + d3;
+        if (actualSum !== sum) {
+            let diff = sum - actualSum;
+            d3 += diff;
+        }
+
+        const dice = [d1, d2, d3];
+        const fakePeriod = `MANUAL-${Math.floor(Math.random() * 100000)}`;
+
+        submitBtn.textContent = 'CALCULATING...';
+        submitBtn.disabled = true;
+
+        // Run local AI prediction
+        const analysis = AI.addResult(fakePeriod, dice, sum);
+
+        // Update UI instantly
+        processGameUpdate(fakePeriod, dice, sum, analysis);
+
+        // Reset UI
+        sumInput.value = '';
+        setTimeout(() => {
+            submitBtn.textContent = 'ADD RESULT';
+            submitBtn.disabled = false;
+        }, 1000);
+    } catch (e) {
+        alert("Error executing calculation: " + e.message);
     }
+});
 
-    let d1 = Math.floor(sum / 3);
-    let d2 = Math.floor((sum - d1) / 2);
-    let d3 = sum - d1 - d2;
-
-    if (d1 < 1) d1 = 1; if (d1 > 6) d1 = 6;
-    if (d2 < 1) d2 = 1; if (d2 > 6) d2 = 6;
-    if (d3 < 1) d3 = 1; if (d3 > 6) d3 = 6;
-
-    const actualSum = d1 + d2 + d3;
-    if (actualSum !== sum) {
-        let diff = sum - actualSum;
-        d3 += diff;
+// Also allow hitting 'Enter' on mobile keyboards
+sumInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        submitBtn.click();
     }
-
-    const dice = [d1, d2, d3];
-    const fakePeriod = `MANUAL-${Math.floor(Math.random() * 100000)}`;
-
-    submitBtn.textContent = 'CALCULATING...';
-    submitBtn.disabled = true;
-
-    // Run local AI prediction
-    const analysis = AI.addResult(fakePeriod, dice, sum);
-
-    // Update UI instantly
-    processGameUpdate(fakePeriod, dice, sum, analysis);
-
-    // Reset UI
-    sumInput.value = '';
-    setTimeout(() => {
-        submitBtn.textContent = 'ADD RESULT';
-        submitBtn.disabled = false;
-    }, 1000);
 });
