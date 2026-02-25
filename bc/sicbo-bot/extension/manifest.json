@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "SicBo Live Data Extractor",
+    "version": "1.0",
+    "permissions": [
+        "scripting"
+    ],
+    "host_permissions": [
+        "*://*.bc.co/*",
+        "*://*.bc.game/*",
+        "http://localhost:4000/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.bc.co/*",
+                "*://*.bc.game/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_start"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "inject.js"
+            ],
+            "matches": [
+                "*://*.bc.co/*",
+                "*://*.bc.game/*"
+            ]
+        }
+    ],
+    "background": {
+        "service_worker": "background.js"
+    }
+}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SicBo Predictor AI</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+    <div class="particles">
+        <!-- CSS Particles Background -->
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="status-indicator">
+                <span class="pulse"></span> LIVE
+            </div>
+            <h1>SICBO <span>PREDICTOR AI</span></h1>
+            <div class="period-id">Awaiting Period...</div>
+        </header>
+
+        <div class="last-roll-container glass-panel">
+            <h3>LAST ROLL</h3>
+            <div class="dice-display">
+                <div class="die" id="dice-1">?</div>
+                <div class="die" id="dice-2">?</div>
+                <div class="die" id="dice-3">?</div>
+            </div>
+            <div class="sum-display">SUM: <span id="dice-sum">0</span></div>
+        </div>
+
+        <div class="predictions-grid">
+            <!-- SIZE PREDICTION -->
+            <div class="prediction-card glass-panel" id="card-size">
+                <h2>SIZE</h2>
+                <div class="signal-value" id="signal-size">WAITING</div>
+                <div class="meta-data">
+                    <div class="meta-item">
+                        <span class="label">LEVEL</span>
+                        <span class="value" id="level-size">1</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="label">CONFIDENCE</span>
+                        <span class="value" id="conf-size">--%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PARITY PREDICTION -->
+            <div class="prediction-card glass-panel" id="card-parity">
+                <h2>PARITY</h2>
+                <div class="signal-value" id="signal-parity">WAITING</div>
+                <div class="meta-data">
+                    <div class="meta-item">
+                        <span class="label">LEVEL</span>
+                        <span class="value" id="level-parity">1</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="label">CONFIDENCE</span>
+                        <span class="value" id="conf-parity">--%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="manual-input-container glass-panel" style="position: relative; z-index: 999;">
+            <h3>MANUAL ENTRY</h3>
+            <div class="input-row">
+                <input type="number" id="manual-sum" min="3" max="18" placeholder="TOTAL SUM" style="width: 150px;">
+                <button id="manual-submit" class="glow-button">ADD RESULT</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
