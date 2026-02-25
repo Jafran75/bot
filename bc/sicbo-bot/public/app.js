@@ -3,14 +3,47 @@
 // ==========================================
 class SicBoPredictor {
     constructor() {
-        this.history = [];
-        this.currentSizeLevel = 1;
-        this.currentParityLevel = 1;
+        // Load persistent deep history
+        const savedHistory = localStorage.getItem('sicbo_history');
+        if (savedHistory) {
+            try { this.history = JSON.parse(savedHistory); } catch (e) { this.history = []; }
+        } else {
+            this.history = [];
+        }
 
-        this.lastSizeSignal = null;
-        this.lastParitySignal = null;
+        const savedLevels = localStorage.getItem('sicbo_levels');
+        if (savedLevels) {
+            try {
+                const parsed = JSON.parse(savedLevels);
+                this.currentSizeLevel = parsed.currentSizeLevel || 1;
+                this.currentParityLevel = parsed.currentParityLevel || 1;
+                this.lastSizeSignal = parsed.lastSizeSignal || null;
+                this.lastParitySignal = parsed.lastParitySignal || null;
+            } catch (e) {
+                this.resetLevels();
+            }
+        } else {
+            this.resetLevels();
+        }
 
         this.currentPrediction = this.generatePrediction();
+    }
+
+    resetLevels() {
+        this.currentSizeLevel = 1;
+        this.currentParityLevel = 1;
+        this.lastSizeSignal = null;
+        this.lastParitySignal = null;
+    }
+
+    saveData() {
+        localStorage.setItem('sicbo_history', JSON.stringify(this.history));
+        localStorage.setItem('sicbo_levels', JSON.stringify({
+            currentSizeLevel: this.currentSizeLevel,
+            currentParityLevel: this.currentParityLevel,
+            lastSizeSignal: this.lastSizeSignal,
+            lastParitySignal: this.lastParitySignal
+        }));
     }
 
     addResult(period, dice, sum) {
@@ -52,33 +85,80 @@ class SicBoPredictor {
         }
 
         this.history.push({ period, dice, sum, actualSize, actualParity });
-        if (this.history.length > 50) this.history.shift();
+
+        // Retain deep history up to 5000 rounds for accurate pattern analysis
+        if (this.history.length > 5000) this.history.shift();
 
         this.currentPrediction = this.generatePrediction();
+
+        // Save to LocalStorage instantly
+        this.saveData();
+
         return this.currentPrediction;
     }
 
+    findDeepPattern(historyArray, type) {
+        if (historyArray.length < 2) return null;
+
+        const data = historyArray.map(h => h[type]);
+
+        // Search deep history for the longest repeating sequence pattern (up to 12 long)
+        const maxPatternLength = Math.min(12, data.length - 1);
+
+        for (let patLen = maxPatternLength; patLen >= 1; patLen--) {
+            const currentPattern = data.slice(-patLen).join(',');
+
+            let counts = { BIG: 0, SMALL: 0, EVEN: 0, ODD: 0 };
+            let matchFound = false;
+
+            // Search backwards through deep history finding intersections
+            for (let i = 0; i < data.length - patLen; i++) {
+                const pastPattern = data.slice(i, i + patLen).join(',');
+                if (pastPattern === currentPattern) {
+                    const nextOutcome = data[i + patLen];
+                    if (nextOutcome !== 'TRIPLE') {
+                        matchFound = true;
+                        counts[nextOutcome]++;
+                    }
+                }
+            }
+
+            if (matchFound) {
+                if (type === 'actualSize') {
+                    if (counts.BIG > counts.SMALL) return 'BIG';
+                    if (counts.SMALL > counts.BIG) return 'SMALL';
+                } else if (type === 'actualParity') {
+                    if (counts.EVEN > counts.ODD) return 'EVEN';
+                    if (counts.ODD > counts.EVEN) return 'ODD';
+                }
+            }
+        }
+        return null;
+    }
+
     generatePrediction() {
-        // 4-Level 100% Winning Strategy (Alternating Reversal Engine)
         const hSize = this.history.filter(h => h.actualSize !== 'TRIPLE');
         const hParity = this.history.filter(h => h.actualParity !== 'TRIPLE');
 
-        let nextSize = 'BIG';
-        if (hSize.length > 0) {
-            const lastData = hSize[hSize.length - 1].actualSize;
-            if (this.currentSizeLevel === 1) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG'; // L1: Reversal
-            else if (this.currentSizeLevel === 2) nextSize = lastData;                        // L2: Follow Trend
-            else if (this.currentSizeLevel === 3) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG'; // L3: Deep Reversal
-            else nextSize = lastData;                                                         // L4: Deep Follow
+        // Deep Analytical Pattern Match Search First
+        let nextSize = this.findDeepPattern(hSize, 'actualSize');
+        let nextParity = this.findDeepPattern(hParity, 'actualParity');
+
+        // Fallback to 4-Level Reversal Strategy if Deep Analysis is inconclusive or tied
+        if (!nextSize) {
+            const lastData = hSize.length > 0 ? hSize[hSize.length - 1].actualSize : 'BIG';
+            if (this.currentSizeLevel === 1) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
+            else if (this.currentSizeLevel === 2) nextSize = lastData;
+            else if (this.currentSizeLevel === 3) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
+            else nextSize = lastData;
         }
 
-        let nextParity = 'EVEN';
-        if (hParity.length > 0) {
-            const lastData = hParity[hParity.length - 1].actualParity;
-            if (this.currentParityLevel === 1) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN'; // L1
-            else if (this.currentParityLevel === 2) nextParity = lastData;                        // L2
-            else if (this.currentParityLevel === 3) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN'; // L3
-            else nextParity = lastData;                                                           // L4
+        if (!nextParity) {
+            const lastData = hParity.length > 0 ? hParity[hParity.length - 1].actualParity : 'EVEN';
+            if (this.currentParityLevel === 1) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
+            else if (this.currentParityLevel === 2) nextParity = lastData;
+            else if (this.currentParityLevel === 3) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
+            else nextParity = lastData;
         }
 
         this.lastSizeSignal = nextSize;
