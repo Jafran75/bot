@@ -230,60 +230,60 @@ function processGameUpdate(period, dice, sum, prediction) {
 }
 
 // ==========================================
-// Manual Input Logic (No Server Required)
+// Fast Entry Logic (No Server Required)
 // ==========================================
-const sumInput = document.getElementById('manual-sum');
-const submitBtn = document.getElementById('manual-submit');
-
-submitBtn.addEventListener('click', () => {
+window.submitFastEntry = function (sizeLabel, parityLabel) {
     try {
-        let sum = parseInt(sumInput.value);
+        let fakeSum = 10; // Default fallback fallback
+        let fakeDice = [3, 3, 4];
 
-        if (isNaN(sum) || sum < 3 || sum > 18) {
-            alert("Please enter a valid total sum between 3 and 18.");
-            return;
+        // Generate a mathematically valid sum & dice combination to satisfy the UI animation
+        if (sizeLabel === 'TRIPLE') {
+            const t = Math.floor(Math.random() * 6) + 1;
+            fakeSum = t * 3;
+            fakeDice = [t, t, t];
+        } else {
+            let found = false;
+            while (!found) {
+                let d1 = Math.floor(Math.random() * 6) + 1;
+                let d2 = Math.floor(Math.random() * 6) + 1;
+                let d3 = Math.floor(Math.random() * 6) + 1;
+
+                // Prevent accidental triples
+                if (d1 === d2 && d2 === d3) continue;
+
+                let s = d1 + d2 + d3;
+                let sSize = (s >= 4 && s <= 10) ? 'SMALL' : ((s >= 11 && s <= 17) ? 'BIG' : 'TRIPLE');
+                let sParity = (s % 2 === 0) ? 'EVEN' : 'ODD';
+
+                if (sSize === sizeLabel && sParity === parityLabel) {
+                    fakeSum = s;
+                    fakeDice = [d1, d2, d3];
+                    found = true;
+                }
+            }
         }
 
-        let d1 = Math.floor(sum / 3);
-        let d2 = Math.floor((sum - d1) / 2);
-        let d3 = sum - d1 - d2;
-
-        if (d1 < 1) d1 = 1; if (d1 > 6) d1 = 6;
-        if (d2 < 1) d2 = 1; if (d2 > 6) d2 = 6;
-        if (d3 < 1) d3 = 1; if (d3 > 6) d3 = 6;
-
-        const actualSum = d1 + d2 + d3;
-        if (actualSum !== sum) {
-            let diff = sum - actualSum;
-            d3 += diff;
-        }
-
-        const dice = [d1, d2, d3];
         const fakePeriod = `MANUAL-${Math.floor(Math.random() * 100000)}`;
 
-        submitBtn.textContent = 'CALCULATING...';
-        submitBtn.disabled = true;
+        // We visually disable the container during processing to prevent double-taps
+        const grid = document.querySelector('.fast-entry-grid');
+        if (grid) grid.style.pointerEvents = 'none';
+        if (grid) grid.style.opacity = '0.5';
 
-        // Run local AI prediction
-        const analysis = AI.addResult(fakePeriod, dice, sum);
+        // Run local AI prediction natively (the math engine handles Triples/Size/Parity parsing itself based on Sum & Dice)
+        const analysis = AI.addResult(fakePeriod, fakeDice, fakeSum);
 
         // Update UI instantly
-        processGameUpdate(fakePeriod, dice, sum, analysis);
+        processGameUpdate(fakePeriod, fakeDice, fakeSum, analysis);
 
-        // Reset UI
-        sumInput.value = '';
+        // Re-enable UI
         setTimeout(() => {
-            submitBtn.textContent = 'ADD RESULT';
-            submitBtn.disabled = false;
+            if (grid) grid.style.pointerEvents = 'auto';
+            if (grid) grid.style.opacity = '1';
         }, 1000);
+
     } catch (e) {
         alert("Error executing calculation: " + e.message);
     }
-});
-
-// Also allow hitting 'Enter' on mobile keyboards
-sumInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        submitBtn.click();
-    }
-});
+};
