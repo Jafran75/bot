@@ -69,16 +69,32 @@
 
         <div class="manual-input-container glass-panel" style="position: relative; z-index: 999;">
             <h3>MANUAL ENTRY</h3>
-            <div class="fast-entry-grid">
-                <button class="glow-button btn-small btn-odd"
-                    onclick="submitFastEntry('SMALL', 'ODD')">SMALL<br>ODD</button>
-                <button class="glow-button btn-small btn-even"
-                    onclick="submitFastEntry('SMALL', 'EVEN')">SMALL<br>EVEN</button>
-                <button class="glow-button btn-triple"
-                    onclick="submitFastEntry('TRIPLE', 'TRIPLE')">ANY<br>TRIPLE</button>
-                <button class="glow-button btn-big btn-odd" onclick="submitFastEntry('BIG', 'ODD')">BIG<br>ODD</button>
-                <button class="glow-button btn-big btn-even"
-                    onclick="submitFastEntry('BIG', 'EVEN')">BIG<br>EVEN</button>
+            <div class="input-row">
+                <select id="manual-d1" class="dice-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <select id="manual-d2" class="dice-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <select id="manual-d3" class="dice-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <button id="manual-submit" class="glow-button">ADD RESULT</button>
             </div>
         </div>
 

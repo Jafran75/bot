@@ -303,20 +303,40 @@ h1 span {
     transform: scale(0.95);
 }
 
-/* Fast Entry Grid Controls */
-.fast-entry-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 10px;
+/* Input Row CSS */
+.input-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-.fast-entry-grid .glow-button {
-    padding: 12px 15px;
-    font-size: 1rem;
-    letter-spacing: 2px;
-    line-height: 1.2;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+.dice-select {
+    width: 60px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px 0;
+    outline: none;
+    transition: all 0.3s;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+
+.dice-select:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 10px rgba(0, 204, 255, 0.3);
+}
+
+.dice-select option {
+    background: var(--bg-color);
+    color: white;
+    font-size: 1.2rem;
 }
 
 .btn-small {
@@ -385,11 +405,20 @@ h1 span {
         font-size: 1rem;
     }
 
-    .fast-entry-grid {
-        grid-template-columns: 1fr;
+    .input-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .input-row .dice-select {
+        width: 100% !important;
+        font-size: 1.5rem;
+        padding: 15px;
     }
 
     .glow-button {
+        width: 100%;
         padding: 15px;
         font-size: 1.1rem;
     }

@@ -97,68 +97,26 @@ class SicBoPredictor {
         return this.currentPrediction;
     }
 
-    findDeepPattern(historyArray, type) {
-        if (historyArray.length < 2) return null;
-
-        const data = historyArray.map(h => h[type]);
-
-        // Search deep history for the longest repeating sequence pattern (up to 12 long)
-        const maxPatternLength = Math.min(12, data.length - 1);
-
-        for (let patLen = maxPatternLength; patLen >= 1; patLen--) {
-            const currentPattern = data.slice(-patLen).join(',');
-
-            let counts = { BIG: 0, SMALL: 0, EVEN: 0, ODD: 0 };
-            let matchFound = false;
-
-            // Search backwards through deep history finding intersections
-            for (let i = 0; i < data.length - patLen; i++) {
-                const pastPattern = data.slice(i, i + patLen).join(',');
-                if (pastPattern === currentPattern) {
-                    const nextOutcome = data[i + patLen];
-                    if (nextOutcome !== 'TRIPLE') {
-                        matchFound = true;
-                        counts[nextOutcome]++;
-                    }
-                }
-            }
-
-            if (matchFound) {
-                if (type === 'actualSize') {
-                    if (counts.BIG > counts.SMALL) return 'BIG';
-                    if (counts.SMALL > counts.BIG) return 'SMALL';
-                } else if (type === 'actualParity') {
-                    if (counts.EVEN > counts.ODD) return 'EVEN';
-                    if (counts.ODD > counts.EVEN) return 'ODD';
-                }
-            }
-        }
-        return null;
-    }
-
     generatePrediction() {
         const hSize = this.history.filter(h => h.actualSize !== 'TRIPLE');
         const hParity = this.history.filter(h => h.actualParity !== 'TRIPLE');
 
-        // Deep Analytical Pattern Match Search First
-        let nextSize = this.findDeepPattern(hSize, 'actualSize');
-        let nextParity = this.findDeepPattern(hParity, 'actualParity');
-
-        // Fallback to 4-Level Reversal Strategy if Deep Analysis is inconclusive or tied
-        if (!nextSize) {
-            const lastData = hSize.length > 0 ? hSize[hSize.length - 1].actualSize : 'BIG';
-            if (this.currentSizeLevel === 1) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
-            else if (this.currentSizeLevel === 2) nextSize = lastData;
-            else if (this.currentSizeLevel === 3) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
-            else nextSize = lastData;
+        let nextSize = 'BIG';
+        if (hSize.length > 0) {
+            const lastData = hSize[hSize.length - 1].actualSize;
+            if (this.currentSizeLevel === 1) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG'; // L1: Reversal
+            else if (this.currentSizeLevel === 2) nextSize = lastData;                        // L2: Follow Trend
+            else if (this.currentSizeLevel === 3) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG'; // L3: Deep Reversal
+            else nextSize = lastData;                                                         // L4: Deep Follow
         }
 
-        if (!nextParity) {
-            const lastData = hParity.length > 0 ? hParity[hParity.length - 1].actualParity : 'EVEN';
-            if (this.currentParityLevel === 1) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
-            else if (this.currentParityLevel === 2) nextParity = lastData;
-            else if (this.currentParityLevel === 3) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
-            else nextParity = lastData;
+        let nextParity = 'EVEN';
+        if (hParity.length > 0) {
+            const lastData = hParity[hParity.length - 1].actualParity;
+            if (this.currentParityLevel === 1) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN'; // L1
+            else if (this.currentParityLevel === 2) nextParity = lastData;                        // L2
+            else if (this.currentParityLevel === 3) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN'; // L3
+            else nextParity = lastData;                                                           // L4
         }
 
         this.lastSizeSignal = nextSize;
@@ -230,60 +188,43 @@ function processGameUpdate(period, dice, sum, prediction) {
 }
 
 // ==========================================
-// Fast Entry Logic (No Server Required)
+// Manual Input Logic (No Server Required)
 // ==========================================
-window.submitFastEntry = function (sizeLabel, parityLabel) {
+const d1Input = document.getElementById('manual-d1');
+const d2Input = document.getElementById('manual-d2');
+const d3Input = document.getElementById('manual-d3');
+const submitBtn = document.getElementById('manual-submit');
+
+submitBtn.addEventListener('click', () => {
     try {
-        let fakeSum = 10; // Default fallback fallback
-        let fakeDice = [3, 3, 4];
+        let d1 = parseInt(d1Input.value);
+        let d2 = parseInt(d2Input.value);
+        let d3 = parseInt(d3Input.value);
 
-        // Generate a mathematically valid sum & dice combination to satisfy the UI animation
-        if (sizeLabel === 'TRIPLE') {
-            const t = Math.floor(Math.random() * 6) + 1;
-            fakeSum = t * 3;
-            fakeDice = [t, t, t];
-        } else {
-            let found = false;
-            while (!found) {
-                let d1 = Math.floor(Math.random() * 6) + 1;
-                let d2 = Math.floor(Math.random() * 6) + 1;
-                let d3 = Math.floor(Math.random() * 6) + 1;
-
-                // Prevent accidental triples
-                if (d1 === d2 && d2 === d3) continue;
-
-                let s = d1 + d2 + d3;
-                let sSize = (s >= 4 && s <= 10) ? 'SMALL' : ((s >= 11 && s <= 17) ? 'BIG' : 'TRIPLE');
-                let sParity = (s % 2 === 0) ? 'EVEN' : 'ODD';
-
-                if (sSize === sizeLabel && sParity === parityLabel) {
-                    fakeSum = s;
-                    fakeDice = [d1, d2, d3];
-                    found = true;
-                }
-            }
+        if (isNaN(d1) || isNaN(d2) || isNaN(d3)) {
+            alert("Please select valid dice numbers.");
+            return;
         }
 
+        const sum = d1 + d2 + d3;
+        const dice = [d1, d2, d3];
         const fakePeriod = `MANUAL-${Math.floor(Math.random() * 100000)}`;
 
-        // We visually disable the container during processing to prevent double-taps
-        const grid = document.querySelector('.fast-entry-grid');
-        if (grid) grid.style.pointerEvents = 'none';
-        if (grid) grid.style.opacity = '0.5';
+        submitBtn.textContent = 'CALCULATING...';
+        submitBtn.disabled = true;
 
-        // Run local AI prediction natively (the math engine handles Triples/Size/Parity parsing itself based on Sum & Dice)
-        const analysis = AI.addResult(fakePeriod, fakeDice, fakeSum);
+        // Run local AI prediction
+        const analysis = AI.addResult(fakePeriod, dice, sum);
 
         // Update UI instantly
-        processGameUpdate(fakePeriod, fakeDice, fakeSum, analysis);
+        processGameUpdate(fakePeriod, dice, sum, analysis);
 
-        // Re-enable UI
+        // Reset UI
         setTimeout(() => {
-            if (grid) grid.style.pointerEvents = 'auto';
-            if (grid) grid.style.opacity = '1';
+            submitBtn.textContent = 'ADD RESULT';
+            submitBtn.disabled = false;
         }, 1000);
-
     } catch (e) {
         alert("Error executing calculation: " + e.message);
     }
-};
+});
