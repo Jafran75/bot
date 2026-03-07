@@ -23,78 +23,103 @@
             <div class="period-id">Awaiting Period...</div>
         </header>
 
-        <div class="last-roll-container glass-panel">
-            <h3>LAST ROLL</h3>
-            <div class="dice-display">
-                <div class="die" id="dice-1">?</div>
-                <div class="die" id="dice-2">?</div>
-                <div class="die" id="dice-3">?</div>
-            </div>
-            <div class="sum-display">SUM: <span id="dice-sum">0</span></div>
+        <div class="game-tabs">
+            <button class="tab-btn active" onclick="switchGame('sicbo')">SICBO</button>
+            <button class="tab-btn" onclick="switchGame('fastparity')">FAST PARITY</button>
         </div>
 
-        <div class="predictions-grid">
-            <!-- SIZE PREDICTION -->
-            <div class="prediction-card glass-panel" id="card-size">
-                <h2>SIZE</h2>
-                <div class="signal-value" id="signal-size">WAITING</div>
-                <div class="meta-data">
-                    <div class="meta-item">
-                        <span class="label">LEVEL</span>
-                        <span class="value" id="level-size">1</span>
+        <!-- ================= SICBO VIEW ================= -->
+        <div id="sicbo-view" class="game-view active-view">
+            <div class="last-roll-container glass-panel">
+                <h3>LAST ROLL</h3>
+                <div class="dice-display">
+                    <div class="die" id="dice-1">?</div>
+                    <div class="die" id="dice-2">?</div>
+                    <div class="die" id="dice-3">?</div>
+                </div>
+                <div class="sum-display">SUM: <span id="dice-sum">0</span></div>
+            </div>
+
+            <div class="predictions-grid">
+                <!-- SIZE PREDICTION -->
+                <div class="prediction-card glass-panel" id="card-size">
+                    <h2>SIZE</h2>
+                    <div class="signal-value" id="signal-size">WAITING</div>
+                    <div class="meta-data">
+                        <div class="meta-item">
+                            <span class="label">LEVEL</span>
+                            <span class="value" id="level-size">1</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="label">CONFIDENCE</span>
+                            <span class="value" id="conf-size">--%</span>
+                        </div>
                     </div>
-                    <div class="meta-item">
-                        <span class="label">CONFIDENCE</span>
-                        <span class="value" id="conf-size">--%</span>
+                </div>
+
+                <!-- PARITY PREDICTION -->
+                <div class="prediction-card glass-panel" id="card-parity">
+                    <h2>PARITY</h2>
+                    <div class="signal-value" id="signal-parity">WAITING</div>
+                    <div class="meta-data">
+                        <div class="meta-item">
+                            <span class="label">LEVEL</span>
+                            <span class="value" id="level-parity">1</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="label">CONFIDENCE</span>
+                            <span class="value" id="conf-parity">--%</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- PARITY PREDICTION -->
-            <div class="prediction-card glass-panel" id="card-parity">
-                <h2>PARITY</h2>
-                <div class="signal-value" id="signal-parity">WAITING</div>
-                <div class="meta-data">
-                    <div class="meta-item">
-                        <span class="label">LEVEL</span>
-                        <span class="value" id="level-parity">1</span>
-                    </div>
-                    <div class="meta-item">
-                        <span class="label">CONFIDENCE</span>
-                        <span class="value" id="conf-parity">--%</span>
-                    </div>
+            <div class="manual-input-container glass-panel" style="position: relative; z-index: 999;">
+                <h3>MANUAL ENTRY</h3>
+                <div class="input-row">
+                    <input type="number" id="manual-3digit" placeholder="123" min="111" max="666" style="width: 150px;"
+                        class="dice-select">
+                    <button id="manual-submit" class="glow-button">ADD RESULT</button>
                 </div>
             </div>
         </div>
 
-        <div class="manual-input-container glass-panel" style="position: relative; z-index: 999;">
-            <h3>MANUAL ENTRY</h3>
-            <div class="input-row">
-                <select id="manual-d1" class="dice-select">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                </select>
-                <select id="manual-d2" class="dice-select">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                </select>
-                <select id="manual-d3" class="dice-select">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                </select>
-                <button id="manual-submit" class="glow-button">ADD RESULT</button>
+        <!-- ================= FAST PARITY VIEW ================= -->
+        <div id="fastparity-view" class="game-view" style="display: none;">
+            <div class="last-roll-container glass-panel">
+                <h3>LAST COLOR</h3>
+                <div class="dice-display">
+                    <div class="color-ball" id="fp-last-color"
+                        style="width: 80px; height: 80px; border-radius: 50%; background: #2a2d3e; margin: 0 auto; box-shadow: inset 0 0 15px rgba(0,0,0,0.5);">
+                    </div>
+                </div>
+            </div>
+
+            <div class="predictions-grid" style="grid-template-columns: 1fr;">
+                <!-- COLOR PREDICTION -->
+                <div class="prediction-card glass-panel" id="card-fp-color">
+                    <h2>COLOR PREDICTION</h2>
+                    <div class="signal-value" id="signal-fp-color">WAITING</div>
+                    <div class="meta-data">
+                        <div class="meta-item">
+                            <span class="label">LEVEL</span>
+                            <span class="value" id="level-fp-color">1</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="label">CONFIDENCE</span>
+                            <span class="value" id="conf-fp-color">--%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="manual-input-container glass-panel" style="position: relative; z-index: 999;">
+                <h3>INPUT COLOR</h3>
+                <div class="fast-entry-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <button class="glow-button btn-big" onclick="submitFP('RED')">🔴 RED</button>
+                    <button class="glow-button btn-triple" onclick="submitFP('VIOLET')">🟣 VIOLET</button>
+                    <button class="glow-button btn-small" onclick="submitFP('GREEN')">🟢 GREEN</button>
+                </div>
             </div>
         </div>
 

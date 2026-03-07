@@ -135,8 +135,99 @@ class SicBoPredictor {
 const AI = new SicBoPredictor();
 
 // ==========================================
+// FAST PARITY PREDICTOR ENGINE (4-LEVEL CYCLE)
+// ==========================================
+class FastParityPredictor {
+    constructor() {
+        const savedHistory = localStorage.getItem('fp_history');
+        if (savedHistory) {
+            try { this.history = JSON.parse(savedHistory); } catch (e) { this.history = []; }
+        } else {
+            this.history = [];
+        }
+
+        const savedLevels = localStorage.getItem('fp_levels');
+        if (savedLevels) {
+            try {
+                const parsed = JSON.parse(savedLevels);
+                this.currentLevel = parsed.currentLevel || 1;
+                this.lastSignal = parsed.lastSignal || null;
+            } catch (e) {
+                this.resetLevels();
+            }
+        } else {
+            this.resetLevels();
+        }
+
+        this.currentPrediction = this.generatePrediction();
+    }
+
+    resetLevels() {
+        this.currentLevel = 1;
+        this.lastSignal = null;
+    }
+
+    saveData() {
+        localStorage.setItem('fp_history', JSON.stringify(this.history));
+        localStorage.setItem('fp_levels', JSON.stringify({
+            currentLevel: this.currentLevel,
+            lastSignal: this.lastSignal
+        }));
+    }
+
+    addResult(actualColor) {
+        console.log(`📊 FP Analysis -> Color: ${actualColor}`);
+
+        if (this.lastSignal) {
+            if (actualColor === 'VIOLET') {
+                this.currentLevel++;
+            } else if (actualColor === this.lastSignal) {
+                this.currentLevel = 1; // WIN -> Reset L1
+            } else {
+                this.currentLevel++; // LOSS -> Next Level
+            }
+            if (this.currentLevel > 4) this.currentLevel = 1; // 4-Level Maximum Sequence Cycle
+        }
+
+        this.history.push({ color: actualColor });
+        if (this.history.length > 5000) this.history.shift();
+
+        this.currentPrediction = this.generatePrediction();
+        this.saveData();
+
+        return this.currentPrediction;
+    }
+
+    generatePrediction() {
+        const hColors = this.history.filter(h => h.color !== 'VIOLET');
+
+        let nextColor = 'GREEN';
+        if (hColors.length > 0) {
+            const lastData = hColors[hColors.length - 1].color;
+            // 4-Level Pattern: Reversal -> Follow -> Reversal -> Follow
+            if (this.currentLevel === 1) nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN'; // L1
+            else if (this.currentLevel === 2) nextColor = lastData;                          // L2
+            else if (this.currentLevel === 3) nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN'; // L3
+            else nextColor = lastData;                                                           // L4
+        }
+
+        this.lastSignal = nextColor;
+        const colorConf = this.currentLevel === 4 ? 100 : (this.currentLevel === 3 ? 99 : (this.currentLevel === 2 ? 88 : 75));
+
+        return {
+            target: nextColor,
+            level: this.currentLevel,
+            confidence: colorConf
+        };
+    }
+}
+
+const FP_AI = new FastParityPredictor();
+
+// ==========================================
 // DOM Elements & Helpers
 // ==========================================
+// Sicbo
 const periodEl = document.querySelector('.period-id');
 const dice1El = document.getElementById('dice-1');
 const dice2El = document.getElementById('dice-2');
@@ -150,6 +241,33 @@ const confSizeEl = document.getElementById('conf-size');
 const signalParityEl = document.getElementById('signal-parity');
 const levelParityEl = document.getElementById('level-parity');
 const confParityEl = document.getElementById('conf-parity');
+
+// Fast Parity
+const fpColorBallEl = document.getElementById('fp-last-color');
+const signalFpColorEl = document.getElementById('signal-fp-color');
+const levelFpColorEl = document.getElementById('level-fp-color');
+const confFpColorEl = document.getElementById('conf-fp-color');
+
+// Game Views
+const sicboView = document.getElementById('sicbo-view');
+const fastParityView = document.getElementById('fastparity-view');
+const tabs = document.querySelectorAll('.tab-btn');
+
+function switchGame(game) {
+    tabs.forEach(t => t.classList.remove('active'));
+
+    if (game === 'sicbo') {
+        tabs[0].classList.add('active');
+        sicboView.style.display = 'block';
+        fastParityView.style.display = 'none';
+        document.querySelector('h1').innerHTML = 'SICBO <span>PREDICTOR AI</span>';
+    } else {
+        tabs[1].classList.add('active');
+        sicboView.style.display = 'none';
+        fastParityView.style.display = 'block';
+        document.querySelector('h1').innerHTML = 'FAST PARITY <span>PREDICTOR AI</span>';
+    }
+}
 
 function setSignalStyle(element, signal) {
     element.textContent = signal;
@@ -190,19 +308,24 @@ function processGameUpdate(period, dice, sum, prediction) {
 // ==========================================
 // Manual Input Logic (No Server Required)
 // ==========================================
-const d1Input = document.getElementById('manual-d1');
-const d2Input = document.getElementById('manual-d2');
-const d3Input = document.getElementById('manual-d3');
+// SICBO 3-DIGIT INPUT
+const digitInput = document.getElementById('manual-3digit');
 const submitBtn = document.getElementById('manual-submit');
 
 submitBtn.addEventListener('click', () => {
     try {
-        let d1 = parseInt(d1Input.value);
-        let d2 = parseInt(d2Input.value);
-        let d3 = parseInt(d3Input.value);
+        const val = digitInput.value;
+        if (!val || val.length !== 3) {
+            alert("Please enter exactly 3 digits (e.g. '123').");
+            return;
+        }
 
-        if (isNaN(d1) || isNaN(d2) || isNaN(d3)) {
-            alert("Please select valid dice numbers.");
+        let d1 = parseInt(val[0]);
+        let d2 = parseInt(val[1]);
+        let d3 = parseInt(val[2]);
+
+        if (isNaN(d1) || isNaN(d2) || isNaN(d3) || d1 < 1 || d1 > 6 || d2 < 1 || d2 > 6 || d3 < 1 || d3 > 6) {
+            alert("Each digit must be between 1 and 6.");
             return;
         }
 
@@ -220,6 +343,7 @@ submitBtn.addEventListener('click', () => {
         processGameUpdate(fakePeriod, dice, sum, analysis);
 
         // Reset UI
+        digitInput.value = '';
         setTimeout(() => {
             submitBtn.textContent = 'ADD RESULT';
             submitBtn.disabled = false;
@@ -228,3 +352,35 @@ submitBtn.addEventListener('click', () => {
         alert("Error executing calculation: " + e.message);
     }
 });
+
+// Auto-submit SicBo on Enter key
+digitInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        submitBtn.click();
+    }
+});
+
+// ==========================================
+// FAST PARITY MANUAL ENTRY
+// ==========================================
+window.submitFP = function (color) {
+    try {
+        const fakePeriod = `MANUAL-${Math.floor(Math.random() * 100000)}`;
+
+        // Visual indicator on color ball
+        fpColorBallEl.style.background = color === 'RED' ? '#ff3366' : (color === 'GREEN' ? '#00ff88' : '#a200ff');
+        periodEl.textContent = `PERIOD: ${fakePeriod}`;
+
+        // Run Math
+        const analysis = FP_AI.addResult(color);
+
+        // Update Prediction UI
+        if (analysis) {
+            setSignalStyle(signalFpColorEl, analysis.target);
+            levelFpColorEl.textContent = analysis.level;
+            confFpColorEl.textContent = analysis.confidence + '%';
+        }
+    } catch (e) {
+        alert("Error executing calculation: " + e.message);
+    }
+};

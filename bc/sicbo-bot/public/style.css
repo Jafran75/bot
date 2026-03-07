@@ -269,6 +269,21 @@ h1 span {
     text-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
 }
 
+.signal-RED {
+    color: var(--accent-red);
+    text-shadow: 0 0 20px rgba(255, 51, 102, 0.5);
+}
+
+.signal-GREEN {
+    color: var(--accent-green);
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+}
+
+.signal-VIOLET {
+    color: var(--accent-neon);
+    text-shadow: 0 0 20px rgba(162, 0, 255, 0.5);
+}
+
 .meta-data {
     display: flex;
     justify-content: space-between;
@@ -299,6 +314,41 @@ h1 span {
     text-align: center;
 }
 
+/* ==========================================
+   GAME SWITCHER TABS
+   ========================================== */
+.game-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-dim);
+    padding: 10px 25px;
+    border-radius: 30px;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 2px;
+}
+
+.tab-btn:hover {
+    color: var(--text-main);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tab-btn.active {
+    background: linear-gradient(45deg, var(--accent-neon), var(--accent-blue));
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 0 15px rgba(162, 0, 255, 0.4);
+}
+
 .glow-button:active {
     transform: scale(0.95);
 }
@@ -325,7 +375,13 @@ h1 span {
     transition: all 0.3s;
     appearance: none;
     -webkit-appearance: none;
-    cursor: pointer;
+}
+
+/* Remove Arrows from Native Input */
+.dice-select::-webkit-outer-spin-button,
+.dice-select::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .dice-select:focus {
