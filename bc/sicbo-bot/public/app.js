@@ -361,18 +361,41 @@ digitInput.addEventListener('keypress', function (e) {
 });
 
 // ==========================================
-// FAST PARITY MANUAL ENTRY
+// FAST PARITY MANUAL ENTRY (0-9)
 // ==========================================
-window.submitFP = function (color) {
+window.submitFP = function (number) {
     try {
         const fakePeriod = `MANUAL-${Math.floor(Math.random() * 100000)}`;
 
+        let colorToPredict;
+        let backgroundStyle;
+
+        // Math rules: 
+        // 0 = Red/Violet (Treat as RED)
+        // 5 = Green/Violet (Treat as GREEN)
+        // Evens (2,4,6,8) = RED
+        // Odds (1,3,7,9) = GREEN
+        if (number === 0) {
+            colorToPredict = 'RED';
+            backgroundStyle = 'linear-gradient(135deg, #ff3366 50%, #a200ff 50%)'; // Red/Violet
+        } else if (number === 5) {
+            colorToPredict = 'GREEN';
+            backgroundStyle = 'linear-gradient(135deg, #00ff88 50%, #a200ff 50%)'; // Green/Violet
+        } else if (number % 2 === 0) {
+            colorToPredict = 'RED';
+            backgroundStyle = '#ff3366'; // Red
+        } else {
+            colorToPredict = 'GREEN';
+            backgroundStyle = '#00ff88'; // Green
+        }
+
         // Visual indicator on color ball
-        fpColorBallEl.style.background = color === 'RED' ? '#ff3366' : (color === 'GREEN' ? '#00ff88' : '#a200ff');
+        fpColorBallEl.innerHTML = `<span style="font-size: 2.5rem; font-weight: 800; color: white; display: flex; align-items: center; justify-content: center; height: 100%; text-shadow: 0 2px 5px rgba(0,0,0,0.5);">${number}</span>`;
+        fpColorBallEl.style.background = backgroundStyle;
         periodEl.textContent = `PERIOD: ${fakePeriod}`;
 
-        // Run Math
-        const analysis = FP_AI.addResult(color);
+        // Run Math based ONLY on pure RED/GREEN outcomes
+        const analysis = FP_AI.addResult(colorToPredict);
 
         // Update Prediction UI
         if (analysis) {

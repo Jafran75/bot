@@ -427,6 +427,55 @@ h1 span {
 }
 
 /* ==========================================
+   FAST PARITY NUMBERS (0-9)
+   ========================================== */
+.fp-number-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.fp-number-grid .glow-button {
+    font-size: 1.5rem;
+    padding: 10px;
+    border-radius: 12px;
+}
+
+.num-red {
+    background: linear-gradient(45deg, #a00030, #ff3366);
+    box-shadow: 0 0 10px rgba(255, 51, 102, 0.3);
+}
+
+.num-green {
+    background: linear-gradient(45deg, #008855, #00ff88);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.num-redv {
+    background: linear-gradient(135deg, #ff3366 50%, #a200ff 50%);
+    box-shadow: 0 0 15px rgba(162, 0, 255, 0.5);
+}
+
+.num-greenv {
+    background: linear-gradient(135deg, #00ff88 50%, #a200ff 50%);
+    box-shadow: 0 0 15px rgba(162, 0, 255, 0.5);
+}
+
+.num-red:hover {
+    box-shadow: 0 0 20px rgba(255, 51, 102, 0.6);
+}
+
+.num-green:hover {
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+}
+
+.num-redv:hover,
+.num-greenv:hover {
+    box-shadow: 0 0 25px rgba(162, 0, 255, 0.8);
+}
+
+/* ==========================================
    MOBILE CONTROLS & RESPONSIVENESS
    ========================================== */
 @media screen and (max-width: 768px) {
