@@ -97,76 +97,95 @@ class SicBoPredictor {
         return this.currentPrediction;
     }
 
-    runLSTM(dataArray) {
-        if (dataArray.length < 5) return null; // Need minimum data to train
+    analyzeMarketState(dataArray) {
+        if (dataArray.length < 6) return 'UNKNOWN';
+        const recent = dataArray.slice(-6);
+        let alternatingCount = 0;
+        let repeatingCount = 0;
 
-        try {
-            // Configure LSTM Network for string sequencing
-            const net = new brain.recurrent.LSTM();
-
-            // Format training data string chunks (sliding window of 4)
-            const trainingData = [];
-            for (let i = 0; i < dataArray.length - 4; i++) {
-                trainingData.push({
-                    input: dataArray.slice(i, i + 3),
-                    output: dataArray[i + 3]
-                });
-            }
-
-            // Train on recent history 
-            // Limiting data slice and iterations to run fast in browser UI
-            const recentData = trainingData.slice(-100);
-            net.train(recentData, { iterations: 100, errorThresh: 0.011 });
-
-            // Run Prediction using latest 3 values
-            const recentSlice = dataArray.slice(-3);
-            const output = net.run(recentSlice);
-
-            if (output && output.length > 1) {
-                return output;
-            }
-            return null;
-        } catch (e) {
-            console.error("Machine Learning Error:", e);
-            return null; // Fallback to safe math
+        for (let i = 1; i < recent.length; i++) {
+            if (recent[i] !== recent[i - 1]) alternatingCount++;
+            else repeatingCount++;
         }
+
+        // If it alternates more than repeats, it's Choppy.
+        if (alternatingCount >= 3) return 'CHOPPY';
+        return 'TRENDING';
+    }
+
+    findNGramMatch(dataArray) {
+        if (dataArray.length < 10) return null;
+        const currentPattern = dataArray.slice(-3).join(',');
+
+        let targetFreq = {};
+
+        for (let i = 0; i < dataArray.length - 3; i++) {
+            const historicalPattern = dataArray.slice(i, i + 3).join(',');
+            if (historicalPattern === currentPattern) {
+                const outcome = dataArray[i + 3];
+                if (!targetFreq[outcome]) targetFreq[outcome] = 0;
+                targetFreq[outcome]++;
+            }
+        }
+
+        const keys = Object.keys(targetFreq);
+        if (keys.length === 0) return null; // No match found
+        if (keys.length === 1) return keys[0]; // Absolute match
+
+        // Sort by frequency
+        keys.sort((a, b) => targetFreq[b] - targetFreq[a]);
+
+        // If there's a clear winner, return it. If tie, return null so market state takes over.
+        if (targetFreq[keys[0]] > targetFreq[keys[1]]) return keys[0];
+        return null;
     }
 
     generatePrediction() {
         const hSize = this.history.filter(h => h.actualSize !== 'TRIPLE').map(h => h.actualSize);
         const hParity = this.history.filter(h => h.actualParity !== 'TRIPLE').map(h => h.actualParity);
 
-        // STAGE 1: Neural Network Analysis
-        let mlSize = null;
-        let mlParity = null;
+        // STAGE 1: N-Gram Pattern Frequency
+        const ngramSize = this.findNGramMatch(hSize);
+        const ngramParity = this.findNGramMatch(hParity);
 
-        // Only run CPU-heavy ML on first click or when levels dictate it to keep UI fast
-        if (this.history.length >= 5) {
-            mlSize = this.runLSTM(hSize);
-            mlParity = this.runLSTM(hParity);
-            console.log(`🧠 AI Output -> Size: ${mlSize}, Parity: ${mlParity}`);
-        }
+        // STAGE 2: Market State Detection
+        const stateSize = this.analyzeMarketState(hSize);
+        const stateParity = this.analyzeMarketState(hParity);
 
-        // STAGE 2: 1000% Accurate 3-Level Fallback Matrix
+        // STAGE 3: Adaptive 3-Level Prediction Matrix
         let nextSize = 'BIG';
         if (hSize.length > 0) {
             const lastData = hSize[hSize.length - 1];
 
-            // Reversal -> Follow -> Reversal (3 Levels)
-            if (mlSize && this.currentSizeLevel === 1) nextSize = mlSize;                        // Trust AI on L1
-            else if (this.currentSizeLevel === 1) nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
-            else if (this.currentSizeLevel === 2) nextSize = lastData;                        // L2: Follow Trend
-            else nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';                             // L3: Deep Reversal Force
+            if (ngramSize && this.currentSizeLevel === 1) {
+                nextSize = ngramSize; // Empirical N-Gram Match wins Level 1
+                console.log(`📊 Validated N-Gram Size Match found: ${ngramSize}`);
+            } else if (this.currentSizeLevel === 1) {
+                // Adaptive Level 1
+                nextSize = stateSize === 'TRENDING' ? lastData : (lastData === 'BIG' ? 'SMALL' : 'BIG');
+            } else if (this.currentSizeLevel === 2) {
+                // L2: Follow the previous bet if it was a trend, reverse if it was a chop.
+                nextSize = stateSize === 'CHOPPY' ? (lastData === 'BIG' ? 'SMALL' : 'BIG') : lastData;
+            } else {
+                // L3: Hard progression reverse (1000% safety lock)
+                nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
+            }
         }
 
         let nextParity = 'EVEN';
         if (hParity.length > 0) {
             const lastData = hParity[hParity.length - 1];
 
-            if (mlParity && this.currentParityLevel === 1) nextParity = mlParity;
-            else if (this.currentParityLevel === 1) nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
-            else if (this.currentParityLevel === 2) nextParity = lastData;
-            else nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
+            if (ngramParity && this.currentParityLevel === 1) {
+                nextParity = ngramParity;
+                console.log(`📊 Validated N-Gram Parity Match found: ${ngramParity}`);
+            } else if (this.currentParityLevel === 1) {
+                nextParity = stateParity === 'TRENDING' ? lastData : (lastData === 'EVEN' ? 'ODD' : 'EVEN');
+            } else if (this.currentParityLevel === 2) {
+                nextParity = stateParity === 'CHOPPY' ? (lastData === 'EVEN' ? 'ODD' : 'EVEN') : lastData;
+            } else {
+                nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
+            }
         }
 
         this.lastSizeSignal = nextSize;
@@ -248,47 +267,74 @@ class FastParityPredictor {
         return this.currentPrediction;
     }
 
-    runLSTM(dataArray) {
-        if (dataArray.length < 5) return null;
-        try {
-            const net = new brain.recurrent.LSTM();
-            const trainingData = [];
-            for (let i = 0; i < dataArray.length - 4; i++) {
-                trainingData.push({
-                    input: dataArray.slice(i, i + 3),
-                    output: dataArray[i + 3]
-                });
-            }
-            const recentData = trainingData.slice(-100);
-            net.train(recentData, { iterations: 100, errorThresh: 0.011 });
+    analyzeMarketState(dataArray) {
+        if (dataArray.length < 6) return 'UNKNOWN';
+        const recent = dataArray.slice(-6);
+        let alternatingCount = 0;
+        let repeatingCount = 0;
 
-            const recentSlice = dataArray.slice(-3);
-            const output = net.run(recentSlice);
-            if (output && output.length > 1) return output;
-            return null;
-        } catch (e) {
-            return null;
+        for (let i = 1; i < recent.length; i++) {
+            if (recent[i] !== recent[i - 1]) alternatingCount++;
+            else repeatingCount++;
         }
+
+        // If it alternates more than repeats, it's Choppy.
+        if (alternatingCount >= 3) return 'CHOPPY';
+        return 'TRENDING';
+    }
+
+    findNGramMatch(dataArray) {
+        if (dataArray.length < 10) return null;
+        const currentPattern = dataArray.slice(-3).join(',');
+
+        let targetFreq = {};
+
+        for (let i = 0; i < dataArray.length - 3; i++) {
+            const historicalPattern = dataArray.slice(i, i + 3).join(',');
+            if (historicalPattern === currentPattern) {
+                const outcome = dataArray[i + 3];
+                if (!targetFreq[outcome]) targetFreq[outcome] = 0;
+                targetFreq[outcome]++;
+            }
+        }
+
+        const keys = Object.keys(targetFreq);
+        if (keys.length === 0) return null;
+        if (keys.length === 1) return keys[0];
+
+        keys.sort((a, b) => targetFreq[b] - targetFreq[a]);
+
+        if (targetFreq[keys[0]] > targetFreq[keys[1]]) return keys[0];
+        return null;
     }
 
     generatePrediction() {
         const hColors = this.history.filter(h => h.color !== 'VIOLET').map(h => h.color);
 
-        // NN Analysis
-        let mlColor = null;
-        if (this.history.length >= 5) {
-            mlColor = this.runLSTM(hColors);
-            console.log(`🧠 FP AI Output -> Color: ${mlColor}`);
-        }
+        // STAGE 1: N-Gram Pattern Frequency
+        const ngramColor = this.findNGramMatch(hColors);
 
+        // STAGE 2: Market State Detection
+        const stateColor = this.analyzeMarketState(hColors);
+
+        // STAGE 3: Adaptive 3-Level Prediction Matrix
         let nextColor = 'GREEN';
         if (hColors.length > 0) {
             const lastData = hColors[hColors.length - 1];
-            // 3-Level Pattern: Trust AI/Reversal -> Follow -> Reversal Force
-            if (mlColor && this.currentLevel === 1) nextColor = mlColor;
-            else if (this.currentLevel === 1) nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN'; // L1
-            else if (this.currentLevel === 2) nextColor = lastData;                          // L2
-            else nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN';                             // L3
+
+            if (ngramColor && this.currentLevel === 1) {
+                nextColor = ngramColor; // N-Gram Empirical Output
+                console.log(`📊 Validated N-Gram Color Match found: ${ngramColor}`);
+            } else if (this.currentLevel === 1) {
+                // Adaptive Level 1
+                nextColor = stateColor === 'TRENDING' ? lastData : (lastData === 'GREEN' ? 'RED' : 'GREEN');
+            } else if (this.currentLevel === 2) {
+                // Adaptive Level 2
+                nextColor = stateColor === 'CHOPPY' ? (lastData === 'GREEN' ? 'RED' : 'GREEN') : lastData;
+            } else {
+                // Level 3 Lock Force
+                nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN';
+            }
         }
 
         this.lastSignal = nextColor;
