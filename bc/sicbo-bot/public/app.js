@@ -64,24 +64,24 @@ class SicBoPredictor {
 
         if (this.lastSizeSignal) {
             if (actualSize === 'TRIPLE') {
-                this.currentSizeLevel = 1; // Reset on Triple
+                this.currentSizeLevel++;
             } else if (actualSize === this.lastSizeSignal) {
-                this.currentSizeLevel++; // WIN -> Press advantage (Anti-Martingale)
-                if (this.currentSizeLevel > 3) this.currentSizeLevel = 1; // Reset after L3 win
+                this.currentSizeLevel = 1; // WIN -> Reset L1
             } else {
-                this.currentSizeLevel = 1; // LOSS -> Reset to Base (Protect Bankroll)
+                this.currentSizeLevel++; // LOSS -> Next Level
             }
+            if (this.currentSizeLevel > 3) this.currentSizeLevel = 1; // 3-Level Maximum
         }
 
         if (this.lastParitySignal) {
             if (actualParity === 'TRIPLE') {
-                this.currentParityLevel = 1;
-            } else if (actualParity === this.lastParitySignal) {
                 this.currentParityLevel++;
-                if (this.currentParityLevel > 3) this.currentParityLevel = 1;
-            } else {
+            } else if (actualParity === this.lastParitySignal) {
                 this.currentParityLevel = 1;
+            } else {
+                this.currentParityLevel++;
             }
+            if (this.currentParityLevel > 3) this.currentParityLevel = 1;
         }
 
         this.history.push({ period, dice, sum, actualSize, actualParity });
@@ -97,61 +97,62 @@ class SicBoPredictor {
         return this.currentPrediction;
     }
 
-    calculateLLNDeviation(dataArray, opt1, opt2) {
-        if (dataArray.length < 10) return opt1; // Default Early
-        let count1 = 0;
-        let count2 = 0;
-        for (const item of dataArray) {
-            if (item === opt1) count1++;
-            else if (item === opt2) count2++;
-        }
-        // Mean Reversion: Return the option that is mathematically lagging behind 50%
-        return count1 <= count2 ? opt1 : opt2;
-    }
+    calculateWMA(dataArray, period, optHigh) {
+        if (dataArray.length < period) return 0.5; // Neutral start
 
-    detectClustering(dataArray, opt1, opt2) {
-        if (dataArray.length < 5) return null;
-        const recent = dataArray.slice(-5);
-        let count1 = 0;
-        let count2 = 0;
-        for (const item of recent) {
-            if (item === opt1) count1++;
-            else if (item === opt2) count2++;
+        const recentData = dataArray.slice(-period);
+        let weightedSum = 0;
+        let weightTotal = 0;
+
+        for (let i = 0; i < recentData.length; i++) {
+            const weight = i + 1; // Heavy weight on most recent outcomes
+            // Quantify outcomes: optHigh = 1, otherwise 0
+            const numericValue = recentData[i] === optHigh ? 1 : 0;
+            weightedSum += numericValue * weight;
+            weightTotal += weight;
         }
-        // If 4 out of the last 5 are the same, it's a momentum cluster.
-        if (count1 >= 4) return opt1;
-        if (count2 >= 4) return opt2;
-        return null; // No cluster
+
+        return weightedSum / weightTotal;
     }
 
     generatePrediction() {
         const hSize = this.history.filter(h => h.actualSize !== 'TRIPLE').map(h => h.actualSize);
         const hParity = this.history.filter(h => h.actualParity !== 'TRIPLE').map(h => h.actualParity);
 
-        // STAGE 1: Calculate LLN Mean Reversion
-        const llnSize = this.calculateLLNDeviation(hSize, 'SMALL', 'BIG');
-        const llnParity = this.calculateLLNDeviation(hParity, 'EVEN', 'ODD');
+        // STAGE 1: Calculate WMA Momentums
+        const fastSizeWMA = this.calculateWMA(hSize, 3, 'BIG');
+        const slowSizeWMA = this.calculateWMA(hSize, 7, 'BIG');
 
-        // STAGE 2: Detect Momentum Clustering (Overrides Reversion)
-        const clusterSize = this.detectClustering(hSize, 'SMALL', 'BIG');
-        const clusterParity = this.detectClustering(hParity, 'EVEN', 'ODD');
+        const fastParityWMA = this.calculateWMA(hParity, 3, 'EVEN');
+        const slowParityWMA = this.calculateWMA(hParity, 7, 'EVEN');
 
-        // STAGE 3: Execute Anti-Martingale
+        // STAGE 2: Golden Cross Execution & Matrix Protection
         let nextSize = 'BIG';
         if (hSize.length > 0) {
-            // If clustering exists, ride the cluster. Otherwise pull to the LLN mean.
-            nextSize = clusterSize ? clusterSize : llnSize;
+            const lastData = hSize[hSize.length - 1];
+
+            // L1 prediction: Crossover momentum
+            let wmaSignal = fastSizeWMA >= slowSizeWMA ? 'BIG' : 'SMALL';
+
+            if (this.currentSizeLevel === 1) nextSize = wmaSignal;
+            else if (this.currentSizeLevel === 2) nextSize = lastData; // Follow the trend
+            else nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG'; // L3 Reversal Force
         }
 
         let nextParity = 'EVEN';
         if (hParity.length > 0) {
-            nextParity = clusterParity ? clusterParity : llnParity;
+            const lastData = hParity[hParity.length - 1];
+
+            let wmaSignal = fastParityWMA >= slowParityWMA ? 'EVEN' : 'ODD';
+
+            if (this.currentParityLevel === 1) nextParity = wmaSignal;
+            else if (this.currentParityLevel === 2) nextParity = lastData;
+            else nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
         }
 
         this.lastSizeSignal = nextSize;
         this.lastParitySignal = nextParity;
 
-        // Confidence scales up as the Anti-Martingale wins (momentum confirms)
         const sizeConf = this.currentSizeLevel === 3 ? 1000 : (this.currentSizeLevel === 2 ? 100 : 88);
         const parConf = this.currentParityLevel === 3 ? 1000 : (this.currentParityLevel === 2 ? 100 : 88);
 
@@ -210,13 +211,13 @@ class FastParityPredictor {
 
         if (this.lastSignal) {
             if (actualColor === 'VIOLET') {
-                this.currentLevel = 1; // Reset on Violet
+                this.currentLevel++;
             } else if (actualColor === this.lastSignal) {
-                this.currentLevel++; // WIN -> Press Anti-Martingale
-                if (this.currentLevel > 3) this.currentLevel = 1;
+                this.currentLevel = 1; // WIN -> Reset L1
             } else {
-                this.currentLevel = 1; // LOSS -> Reset baseline
+                this.currentLevel++; // LOSS -> Next Level
             }
+            if (this.currentLevel > 3) this.currentLevel = 1; // 3-Level Maximum
         }
 
         this.history.push({ color: actualColor });
@@ -228,44 +229,39 @@ class FastParityPredictor {
         return this.currentPrediction;
     }
 
-    calculateLLNDeviation(dataArray, opt1, opt2) {
-        if (dataArray.length < 10) return opt1;
-        let count1 = 0;
-        let count2 = 0;
-        for (const item of dataArray) {
-            if (item === opt1) count1++;
-            else if (item === opt2) count2++;
-        }
-        return count1 <= count2 ? opt1 : opt2;
-    }
+    calculateWMA(dataArray, period, optHigh) {
+        if (dataArray.length < period) return 0.5;
 
-    detectClustering(dataArray, opt1, opt2) {
-        if (dataArray.length < 5) return null;
-        const recent = dataArray.slice(-5);
-        let count1 = 0;
-        let count2 = 0;
-        for (const item of recent) {
-            if (item === opt1) count1++;
-            else if (item === opt2) count2++;
+        const recentData = dataArray.slice(-period);
+        let weightedSum = 0;
+        let weightTotal = 0;
+
+        for (let i = 0; i < recentData.length; i++) {
+            const weight = i + 1;
+            const numericValue = recentData[i] === optHigh ? 1 : 0;
+            weightedSum += numericValue * weight;
+            weightTotal += weight;
         }
-        if (count1 >= 4) return opt1;
-        if (count2 >= 4) return opt2;
-        return null;
+
+        return weightedSum / weightTotal;
     }
 
     generatePrediction() {
         const hColors = this.history.filter(h => h.color !== 'VIOLET').map(h => h.color);
 
-        // STAGE 1: LLN Mean Reversion
-        const llnColor = this.calculateLLNDeviation(hColors, 'RED', 'GREEN');
+        // STAGE 1: WMA Analysis
+        const fastColorWMA = this.calculateWMA(hColors, 3, 'GREEN');
+        const slowColorWMA = this.calculateWMA(hColors, 7, 'GREEN');
 
-        // STAGE 2: Momentum Clustering
-        const clusterColor = this.detectClustering(hColors, 'RED', 'GREEN');
-
-        // STAGE 3: Execute Anti-Martingale
+        // STAGE 2: Execution Matrix
         let nextColor = 'GREEN';
         if (hColors.length > 0) {
-            nextColor = clusterColor ? clusterColor : llnColor;
+            const lastData = hColors[hColors.length - 1];
+            let wmaSignal = fastColorWMA >= slowColorWMA ? 'GREEN' : 'RED';
+
+            if (this.currentLevel === 1) nextColor = wmaSignal;
+            else if (this.currentLevel === 2) nextColor = lastData;
+            else nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN';
         }
 
         this.lastSignal = nextColor;
