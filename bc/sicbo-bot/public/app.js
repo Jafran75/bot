@@ -64,24 +64,24 @@ class SicBoPredictor {
 
         if (this.lastSizeSignal) {
             if (actualSize === 'TRIPLE') {
-                this.currentSizeLevel++;
+                this.currentSizeLevel = 1; // Reset on Triple
             } else if (actualSize === this.lastSizeSignal) {
-                this.currentSizeLevel = 1; // WIN -> Reset L1
+                this.currentSizeLevel++; // WIN -> Press advantage (Anti-Martingale)
+                if (this.currentSizeLevel > 3) this.currentSizeLevel = 1; // Reset after L3 win
             } else {
-                this.currentSizeLevel++; // LOSS -> Next Level
+                this.currentSizeLevel = 1; // LOSS -> Reset to Base (Protect Bankroll)
             }
-            if (this.currentSizeLevel > 3) this.currentSizeLevel = 1; // 3-Level Maximum (1000% accurate)
         }
 
         if (this.lastParitySignal) {
             if (actualParity === 'TRIPLE') {
-                this.currentParityLevel++;
-            } else if (actualParity === this.lastParitySignal) {
                 this.currentParityLevel = 1;
-            } else {
+            } else if (actualParity === this.lastParitySignal) {
                 this.currentParityLevel++;
+                if (this.currentParityLevel > 3) this.currentParityLevel = 1;
+            } else {
+                this.currentParityLevel = 1;
             }
-            if (this.currentParityLevel > 3) this.currentParityLevel = 1;
         }
 
         this.history.push({ period, dice, sum, actualSize, actualParity });
@@ -97,100 +97,61 @@ class SicBoPredictor {
         return this.currentPrediction;
     }
 
-    analyzeMarketState(dataArray) {
-        if (dataArray.length < 6) return 'UNKNOWN';
-        const recent = dataArray.slice(-6);
-        let alternatingCount = 0;
-        let repeatingCount = 0;
-
-        for (let i = 1; i < recent.length; i++) {
-            if (recent[i] !== recent[i - 1]) alternatingCount++;
-            else repeatingCount++;
+    calculateLLNDeviation(dataArray, opt1, opt2) {
+        if (dataArray.length < 10) return opt1; // Default Early
+        let count1 = 0;
+        let count2 = 0;
+        for (const item of dataArray) {
+            if (item === opt1) count1++;
+            else if (item === opt2) count2++;
         }
-
-        // If it alternates more than repeats, it's Choppy.
-        if (alternatingCount >= 3) return 'CHOPPY';
-        return 'TRENDING';
+        // Mean Reversion: Return the option that is mathematically lagging behind 50%
+        return count1 <= count2 ? opt1 : opt2;
     }
 
-    findNGramMatch(dataArray) {
-        if (dataArray.length < 10) return null;
-        const currentPattern = dataArray.slice(-3).join(',');
-
-        let targetFreq = {};
-
-        for (let i = 0; i < dataArray.length - 3; i++) {
-            const historicalPattern = dataArray.slice(i, i + 3).join(',');
-            if (historicalPattern === currentPattern) {
-                const outcome = dataArray[i + 3];
-                if (!targetFreq[outcome]) targetFreq[outcome] = 0;
-                targetFreq[outcome]++;
-            }
+    detectClustering(dataArray, opt1, opt2) {
+        if (dataArray.length < 5) return null;
+        const recent = dataArray.slice(-5);
+        let count1 = 0;
+        let count2 = 0;
+        for (const item of recent) {
+            if (item === opt1) count1++;
+            else if (item === opt2) count2++;
         }
-
-        const keys = Object.keys(targetFreq);
-        if (keys.length === 0) return null; // No match found
-        if (keys.length === 1) return keys[0]; // Absolute match
-
-        // Sort by frequency
-        keys.sort((a, b) => targetFreq[b] - targetFreq[a]);
-
-        // If there's a clear winner, return it. If tie, return null so market state takes over.
-        if (targetFreq[keys[0]] > targetFreq[keys[1]]) return keys[0];
-        return null;
+        // If 4 out of the last 5 are the same, it's a momentum cluster.
+        if (count1 >= 4) return opt1;
+        if (count2 >= 4) return opt2;
+        return null; // No cluster
     }
 
     generatePrediction() {
         const hSize = this.history.filter(h => h.actualSize !== 'TRIPLE').map(h => h.actualSize);
         const hParity = this.history.filter(h => h.actualParity !== 'TRIPLE').map(h => h.actualParity);
 
-        // STAGE 1: N-Gram Pattern Frequency
-        const ngramSize = this.findNGramMatch(hSize);
-        const ngramParity = this.findNGramMatch(hParity);
+        // STAGE 1: Calculate LLN Mean Reversion
+        const llnSize = this.calculateLLNDeviation(hSize, 'SMALL', 'BIG');
+        const llnParity = this.calculateLLNDeviation(hParity, 'EVEN', 'ODD');
 
-        // STAGE 2: Market State Detection
-        const stateSize = this.analyzeMarketState(hSize);
-        const stateParity = this.analyzeMarketState(hParity);
+        // STAGE 2: Detect Momentum Clustering (Overrides Reversion)
+        const clusterSize = this.detectClustering(hSize, 'SMALL', 'BIG');
+        const clusterParity = this.detectClustering(hParity, 'EVEN', 'ODD');
 
-        // STAGE 3: Adaptive 3-Level Prediction Matrix
+        // STAGE 3: Execute Anti-Martingale
         let nextSize = 'BIG';
         if (hSize.length > 0) {
-            const lastData = hSize[hSize.length - 1];
-
-            if (ngramSize && this.currentSizeLevel === 1) {
-                nextSize = ngramSize; // Empirical N-Gram Match wins Level 1
-                console.log(`📊 Validated N-Gram Size Match found: ${ngramSize}`);
-            } else if (this.currentSizeLevel === 1) {
-                // Adaptive Level 1
-                nextSize = stateSize === 'TRENDING' ? lastData : (lastData === 'BIG' ? 'SMALL' : 'BIG');
-            } else if (this.currentSizeLevel === 2) {
-                // L2: Follow the previous bet if it was a trend, reverse if it was a chop.
-                nextSize = stateSize === 'CHOPPY' ? (lastData === 'BIG' ? 'SMALL' : 'BIG') : lastData;
-            } else {
-                // L3: Hard progression reverse (1000% safety lock)
-                nextSize = lastData === 'BIG' ? 'SMALL' : 'BIG';
-            }
+            // If clustering exists, ride the cluster. Otherwise pull to the LLN mean.
+            nextSize = clusterSize ? clusterSize : llnSize;
         }
 
         let nextParity = 'EVEN';
         if (hParity.length > 0) {
-            const lastData = hParity[hParity.length - 1];
-
-            if (ngramParity && this.currentParityLevel === 1) {
-                nextParity = ngramParity;
-                console.log(`📊 Validated N-Gram Parity Match found: ${ngramParity}`);
-            } else if (this.currentParityLevel === 1) {
-                nextParity = stateParity === 'TRENDING' ? lastData : (lastData === 'EVEN' ? 'ODD' : 'EVEN');
-            } else if (this.currentParityLevel === 2) {
-                nextParity = stateParity === 'CHOPPY' ? (lastData === 'EVEN' ? 'ODD' : 'EVEN') : lastData;
-            } else {
-                nextParity = lastData === 'EVEN' ? 'ODD' : 'EVEN';
-            }
+            nextParity = clusterParity ? clusterParity : llnParity;
         }
 
         this.lastSizeSignal = nextSize;
         this.lastParitySignal = nextParity;
 
+        // Confidence scales up as the Anti-Martingale wins (momentum confirms)
         const sizeConf = this.currentSizeLevel === 3 ? 1000 : (this.currentSizeLevel === 2 ? 100 : 88);
         const parConf = this.currentParityLevel === 3 ? 1000 : (this.currentParityLevel === 2 ? 100 : 88);
 
@@ -249,13 +210,13 @@ class FastParityPredictor {
 
         if (this.lastSignal) {
             if (actualColor === 'VIOLET') {
-                this.currentLevel++;
+                this.currentLevel = 1; // Reset on Violet
             } else if (actualColor === this.lastSignal) {
-                this.currentLevel = 1; // WIN -> Reset L1
+                this.currentLevel++; // WIN -> Press Anti-Martingale
+                if (this.currentLevel > 3) this.currentLevel = 1;
             } else {
-                this.currentLevel++; // LOSS -> Next Level
+                this.currentLevel = 1; // LOSS -> Reset baseline
             }
-            if (this.currentLevel > 3) this.currentLevel = 1; // 3-Level Maximum Sequence Cycle
         }
 
         this.history.push({ color: actualColor });
@@ -267,74 +228,44 @@ class FastParityPredictor {
         return this.currentPrediction;
     }
 
-    analyzeMarketState(dataArray) {
-        if (dataArray.length < 6) return 'UNKNOWN';
-        const recent = dataArray.slice(-6);
-        let alternatingCount = 0;
-        let repeatingCount = 0;
-
-        for (let i = 1; i < recent.length; i++) {
-            if (recent[i] !== recent[i - 1]) alternatingCount++;
-            else repeatingCount++;
+    calculateLLNDeviation(dataArray, opt1, opt2) {
+        if (dataArray.length < 10) return opt1;
+        let count1 = 0;
+        let count2 = 0;
+        for (const item of dataArray) {
+            if (item === opt1) count1++;
+            else if (item === opt2) count2++;
         }
-
-        // If it alternates more than repeats, it's Choppy.
-        if (alternatingCount >= 3) return 'CHOPPY';
-        return 'TRENDING';
+        return count1 <= count2 ? opt1 : opt2;
     }
 
-    findNGramMatch(dataArray) {
-        if (dataArray.length < 10) return null;
-        const currentPattern = dataArray.slice(-3).join(',');
-
-        let targetFreq = {};
-
-        for (let i = 0; i < dataArray.length - 3; i++) {
-            const historicalPattern = dataArray.slice(i, i + 3).join(',');
-            if (historicalPattern === currentPattern) {
-                const outcome = dataArray[i + 3];
-                if (!targetFreq[outcome]) targetFreq[outcome] = 0;
-                targetFreq[outcome]++;
-            }
+    detectClustering(dataArray, opt1, opt2) {
+        if (dataArray.length < 5) return null;
+        const recent = dataArray.slice(-5);
+        let count1 = 0;
+        let count2 = 0;
+        for (const item of recent) {
+            if (item === opt1) count1++;
+            else if (item === opt2) count2++;
         }
-
-        const keys = Object.keys(targetFreq);
-        if (keys.length === 0) return null;
-        if (keys.length === 1) return keys[0];
-
-        keys.sort((a, b) => targetFreq[b] - targetFreq[a]);
-
-        if (targetFreq[keys[0]] > targetFreq[keys[1]]) return keys[0];
+        if (count1 >= 4) return opt1;
+        if (count2 >= 4) return opt2;
         return null;
     }
 
     generatePrediction() {
         const hColors = this.history.filter(h => h.color !== 'VIOLET').map(h => h.color);
 
-        // STAGE 1: N-Gram Pattern Frequency
-        const ngramColor = this.findNGramMatch(hColors);
+        // STAGE 1: LLN Mean Reversion
+        const llnColor = this.calculateLLNDeviation(hColors, 'RED', 'GREEN');
 
-        // STAGE 2: Market State Detection
-        const stateColor = this.analyzeMarketState(hColors);
+        // STAGE 2: Momentum Clustering
+        const clusterColor = this.detectClustering(hColors, 'RED', 'GREEN');
 
-        // STAGE 3: Adaptive 3-Level Prediction Matrix
+        // STAGE 3: Execute Anti-Martingale
         let nextColor = 'GREEN';
         if (hColors.length > 0) {
-            const lastData = hColors[hColors.length - 1];
-
-            if (ngramColor && this.currentLevel === 1) {
-                nextColor = ngramColor; // N-Gram Empirical Output
-                console.log(`📊 Validated N-Gram Color Match found: ${ngramColor}`);
-            } else if (this.currentLevel === 1) {
-                // Adaptive Level 1
-                nextColor = stateColor === 'TRENDING' ? lastData : (lastData === 'GREEN' ? 'RED' : 'GREEN');
-            } else if (this.currentLevel === 2) {
-                // Adaptive Level 2
-                nextColor = stateColor === 'CHOPPY' ? (lastData === 'GREEN' ? 'RED' : 'GREEN') : lastData;
-            } else {
-                // Level 3 Lock Force
-                nextColor = lastData === 'GREEN' ? 'RED' : 'GREEN';
-            }
+            nextColor = clusterColor ? clusterColor : llnColor;
         }
 
         this.lastSignal = nextColor;
