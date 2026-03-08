@@ -41,10 +41,12 @@ class SicBoPredictor {
         this.currentParityLevel = 1;
         this.lastSizeSignal = null;
         this.lastParitySignal = null;
-        this.engineScoresSize = { lln: 0, wma: 0, ngram: 0, markov: 0 };
-        this.engineScoresParity = { lln: 0, wma: 0, ngram: 0, markov: 0 };
+        this.engineScoresSize = { lln: 0, wma: 0, ngram: 0, markov: 0, qtable: 0 };
+        this.engineScoresParity = { lln: 0, wma: 0, ngram: 0, markov: 0, qtable: 0 };
         this.predictionCacheSize = null;
         this.predictionCacheParity = null;
+        this.qTableSize = {};
+        this.qTableParity = {};
     }
 
     saveData() {
@@ -57,7 +59,9 @@ class SicBoPredictor {
             engineScoresSize: this.engineScoresSize,
             engineScoresParity: this.engineScoresParity,
             predictionCacheSize: this.predictionCacheSize,
-            predictionCacheParity: this.predictionCacheParity
+            predictionCacheParity: this.predictionCacheParity,
+            qTableSize: this.qTableSize,
+            qTableParity: this.qTableParity
         }));
     }
 
@@ -98,15 +102,25 @@ class SicBoPredictor {
     }
 
     advanceLevel(currentLevel, actualOutcome, lastSignal) {
-        if (!lastSignal) {
-            return currentLevel;
-        }
+        if (!lastSignal) return currentLevel;
+        if (actualOutcome === lastSignal) return 1; // Win resets to 1
+        if (currentLevel === 3) return 1; // Critical Fix: Loss at Level 3 FORCE RESETS to 1 to prevent bankruptcy
+        return currentLevel + 1; // Progress on levels 1 and 2
+    }
 
-        if (actualOutcome === lastSignal) {
-            return 1;
-        }
+    updateQTable(qTable, history, predictionCache, actualResult) {
+        if (!predictionCache || !predictionCache.qtable || actualResult === 'TRIPLE' || history.length < 3) return;
+        // The State is the trailing 3 rolls BEFORE the result happened
+        const state = history.slice(-3).map(h => h.actualSize || h.actualParity).join(',');
+        const action = predictionCache.qtable;
+        const reward = action === actualResult ? 1 : -1;
 
-        return Math.min(currentLevel + 1, 3);
+        if (!qTable[state]) qTable[state] = {};
+        if (!qTable[state][action]) qTable[state][action] = 0;
+
+        // Q-Learning update: Q(s,a) = Q(s,a) + alpha * (reward + gamma * maxQ(s', a') - Q(s,a))
+        // Simplified lightweight update for immediate real-time environment
+        qTable[state][action] += reward;
     }
 
     updateEngineScores(scores, cache, actualResult) {
@@ -124,6 +138,9 @@ class SicBoPredictor {
 
         if (cache.markov === actualResult) scores.markov = Math.min(scores.markov + 1, 10);
         else scores.markov = Math.max(scores.markov - 1, -10);
+
+        if (cache.qtable === actualResult) scores.qtable = Math.min(scores.qtable + 1, 10);
+        else scores.qtable = Math.max(scores.qtable - 1, -10);
     }
 
     calculateLLN(dataArray, optHigh, optLow) {
@@ -188,7 +205,18 @@ class SicBoPredictor {
         return weightedSum / weightTotal;
     }
 
-    voteConsensus(lln, wma, ngram, markov, scores, optHigh, optLow) {
+    calculateQBasedPrediction(qTable, dataArray, optHigh, optLow) {
+        if (dataArray.length < 3) return optHigh;
+        const currentState = dataArray.slice(-3).join(',');
+        if (!qTable[currentState]) return optHigh; // Unknown state, default
+
+        const rewardHigh = qTable[currentState][optHigh] || 0;
+        const rewardLow = qTable[currentState][optLow] || 0;
+
+        return rewardHigh >= rewardLow ? optHigh : optLow;
+    }
+
+    voteConsensus(lln, wma, ngram, markov, qtable, scores, optHigh, optLow) {
         // If an engine is negative (failing), its vote counts for 0.
         // If positive, its exact score dictates its weight.
         let highVotes = 0;
@@ -204,9 +232,10 @@ class SicBoPredictor {
         castVote(wma, scores.wma);
         if (ngram) castVote(ngram, scores.ngram);
         castVote(markov, scores.markov);
+        castVote(qtable, scores.qtable);
 
-        // If absolute tie or all 0s, fallback to WMA micro-momentum
-        if (highVotes === lowVotes) return wma;
+        // If absolute tie or all 0s, fallback to ML Q-Table
+        if (highVotes === lowVotes) return qtable;
         return highVotes > lowVotes ? optHigh : optLow;
     }
 
@@ -214,7 +243,7 @@ class SicBoPredictor {
         if (history.length === 0) return highLabel;
 
         const lastOutcome = history[history.length - 1];
-        const consensusSignal = this.voteConsensus(predictions.lln, predictions.wma, predictions.ngram, predictions.markov, scores, highLabel, lowLabel);
+        const consensusSignal = this.voteConsensus(predictions.lln, predictions.wma, predictions.ngram, predictions.markov, predictions.qtable, scores, highLabel, lowLabel);
 
         if (level === 1) return consensusSignal;
         if (level === 2) return lastOutcome;
@@ -225,24 +254,26 @@ class SicBoPredictor {
         const sizeHistory = this.history.filter(e => e.actualSize !== 'TRIPLE').map(e => e.actualSize);
         const parityHistory = this.history.filter(e => e.actualParity !== 'TRIPLE').map(e => e.actualParity);
 
-        // Calculate all 4 sub-engines for SIZE
+        // Calculate all 5 sub-engines for SIZE (Added Q-Learning)
         const sLln = this.calculateLLN(sizeHistory, 'BIG', 'SMALL');
         const sNgram = this.calculateNGram(sizeHistory);
         const sMarkov = this.calculateMarkov(sizeHistory, 'BIG', 'SMALL');
         const fastSizeWMA = this.calculateWMA(sizeHistory, 3, 'BIG');
         const slowSizeWMA = this.calculateWMA(sizeHistory, 7, 'BIG');
         const sWma = fastSizeWMA >= slowSizeWMA ? 'BIG' : 'SMALL';
+        const sQTable = this.calculateQBasedPrediction(this.qTableSize, sizeHistory, 'BIG', 'SMALL');
 
-        // Calculate all 4 sub-engines for PARITY
+        // Calculate all 5 sub-engines for PARITY (Added Q-Learning)
         const pLln = this.calculateLLN(parityHistory, 'EVEN', 'ODD');
         const pNgram = this.calculateNGram(parityHistory);
         const pMarkov = this.calculateMarkov(parityHistory, 'EVEN', 'ODD');
         const fastParityWMA = this.calculateWMA(parityHistory, 3, 'EVEN');
         const slowParityWMA = this.calculateWMA(parityHistory, 7, 'EVEN');
         const pWma = fastParityWMA >= slowParityWMA ? 'EVEN' : 'ODD';
+        const pQTable = this.calculateQBasedPrediction(this.qTableParity, parityHistory, 'EVEN', 'ODD');
 
-        const sizePreds = { lln: sLln, wma: sWma, ngram: sNgram, markov: sMarkov };
-        const parityPreds = { lln: pLln, wma: pWma, ngram: pNgram, markov: pMarkov };
+        const sizePreds = { lln: sLln, wma: sWma, ngram: sNgram, markov: sMarkov, qtable: sQTable };
+        const parityPreds = { lln: pLln, wma: pWma, ngram: pNgram, markov: pMarkov, qtable: pQTable };
 
         const nextSize = this.selectTarget(sizeHistory, sizePreds, this.engineScoresSize, this.currentSizeLevel, 'BIG', 'SMALL');
         const nextParity = this.selectTarget(parityHistory, parityPreds, this.engineScoresParity, this.currentParityLevel, 'EVEN', 'ODD');
@@ -255,11 +286,11 @@ class SicBoPredictor {
         }
 
         // Generate synthetic confidence based on highest scoring engine
-        const maxSizeScore = Math.max(this.engineScoresSize.lln, this.engineScoresSize.wma, this.engineScoresSize.ngram, this.engineScoresSize.markov);
-        const maxParityScore = Math.max(this.engineScoresParity.lln, this.engineScoresParity.wma, this.engineScoresParity.ngram, this.engineScoresParity.markov);
+        const maxSizeScore = Math.max(this.engineScoresSize.lln, this.engineScoresSize.wma, this.engineScoresSize.ngram, this.engineScoresSize.markov, this.engineScoresSize.qtable);
+        const maxParityScore = Math.max(this.engineScoresParity.lln, this.engineScoresParity.wma, this.engineScoresParity.ngram, this.engineScoresParity.markov, this.engineScoresParity.qtable);
 
-        const sizeConf = Math.min(88 + (Math.max(0, maxSizeScore) * 2), 100);
-        const parConf = Math.min(88 + (Math.max(0, maxParityScore) * 2), 100);
+        const sizeConf = Math.min(85 + (Math.max(0, maxSizeScore) * 2.5), 100); // Scaled slightly higher per-engine due to 5 modules
+        const parConf = Math.min(85 + (Math.max(0, maxParityScore) * 2.5), 100);
 
         return {
             size: { target: nextSize, level: this.currentSizeLevel, confidence: Math.round(sizeConf) },
@@ -292,8 +323,9 @@ class FastParityPredictor {
                 const parsed = JSON.parse(savedLevels);
                 this.currentLevel = Math.min(parsed.currentLevel || 1, 3);
                 this.lastSignal = parsed.lastSignal || null;
-                this.engineScores = parsed.engineScores || { lln: 0, wma: 0, ngram: 0, markov: 0 };
+                this.engineScores = parsed.engineScores || { lln: 0, wma: 0, ngram: 0, markov: 0, qtable: 0 };
                 this.predictionCache = parsed.predictionCache || null;
+                this.qTable = parsed.qTable || {};
             } catch (error) {
                 this.resetLevels();
             }
@@ -307,8 +339,9 @@ class FastParityPredictor {
     resetLevels() {
         this.currentLevel = 1;
         this.lastSignal = null;
-        this.engineScores = { lln: 0, wma: 0, ngram: 0, markov: 0 };
+        this.engineScores = { lln: 0, wma: 0, ngram: 0, markov: 0, qtable: 0 };
         this.predictionCache = null;
+        this.qTable = {};
     }
 
     saveData() {
@@ -317,7 +350,8 @@ class FastParityPredictor {
             currentLevel: this.currentLevel,
             lastSignal: this.lastSignal,
             engineScores: this.engineScores,
-            predictionCache: this.predictionCache
+            predictionCache: this.predictionCache,
+            qTable: this.qTable
         }));
     }
 
@@ -326,9 +360,11 @@ class FastParityPredictor {
 
         if (this.lastSignal) {
             if (actualColor === this.lastSignal) {
-                this.currentLevel = 1;
+                this.currentLevel = 1; // Win = Reset
+            } else if (this.currentLevel === 3) {
+                this.currentLevel = 1; // Critical Bug Fix: Loss at Level 3 FORCE RESETS to 1
             } else {
-                this.currentLevel = Math.min(this.currentLevel + 1, 3);
+                this.currentLevel = this.currentLevel + 1; // Loss at 1/2 = Progress
             }
             // Update Master Node accuracy tracker
             if (this.predictionCache && actualColor !== 'VIOLET') {
@@ -343,6 +379,9 @@ class FastParityPredictor {
 
                 if (this.predictionCache.markov === actualColor) this.engineScores.markov = Math.min(this.engineScores.markov + 1, 10);
                 else this.engineScores.markov = Math.max(this.engineScores.markov - 1, -10);
+
+                if (this.predictionCache.qtable === actualColor) this.engineScores.qtable = Math.min(this.engineScores.qtable + 1, 10);
+                else this.engineScores.qtable = Math.max(this.engineScores.qtable - 1, -10);
             }
         }
 
@@ -418,7 +457,29 @@ class FastParityPredictor {
         return weightedSum / weightTotal;
     }
 
-    voteConsensus(lln, wma, ngram, markov, optHigh, optLow) {
+    updateQTable(history, predictionCache, actualResult) {
+        if (!predictionCache || !predictionCache.qtable || actualResult === 'VIOLET' || history.length < 3) return;
+        const state = history.slice(-4, -1).map(h => h.color).join(',');
+        const action = predictionCache.qtable;
+        const reward = action === actualResult ? 1 : -1;
+
+        if (!this.qTable[state]) this.qTable[state] = {};
+        if (!this.qTable[state][action]) this.qTable[state][action] = 0;
+        this.qTable[state][action] += reward;
+    }
+
+    calculateQBasedPrediction(dataArray, optHigh, optLow) {
+        if (dataArray.length < 3) return optHigh;
+        const currentState = dataArray.slice(-3).join(',');
+        if (!this.qTable[currentState]) return optHigh; // Default state
+
+        const rewardHigh = this.qTable[currentState][optHigh] || 0;
+        const rewardLow = this.qTable[currentState][optLow] || 0;
+
+        return rewardHigh >= rewardLow ? optHigh : optLow;
+    }
+
+    voteConsensus(lln, wma, ngram, markov, qtable, optHigh, optLow) {
         let highVotes = 0; let lowVotes = 0;
         const castVote = (enginePrediction, engineScore) => {
             const weight = Math.max(0, engineScore);
@@ -430,8 +491,9 @@ class FastParityPredictor {
         castVote(wma, this.engineScores.wma);
         if (ngram) castVote(ngram, this.engineScores.ngram);
         castVote(markov, this.engineScores.markov);
+        castVote(qtable, this.engineScores.qtable);
 
-        if (highVotes === lowVotes) return wma;
+        if (highVotes === lowVotes) return qtable;
         return highVotes > lowVotes ? optHigh : optLow;
     }
 
@@ -447,20 +509,21 @@ class FastParityPredictor {
     generatePrediction({ commit = true } = {}) {
         const hColors = this.history.filter(e => e.color !== 'VIOLET').map(e => e.color);
 
-        // 4 Engines
+        // 5 Engines
         const pLln = this.calculateLLN(hColors, 'GREEN', 'RED');
         const pNgram = this.calculateNGram(hColors);
         const pMarkov = this.calculateMarkov(hColors, 'GREEN', 'RED');
         const fastWMA = this.calculateWMA(hColors, 3, 'GREEN');
         const slowWMA = this.calculateWMA(hColors, 7, 'GREEN');
         const pWma = fastWMA >= slowWMA ? 'GREEN' : 'RED';
+        const pQTable = this.calculateQBasedPrediction(hColors, 'GREEN', 'RED');
 
-        const preds = { lln: pLln, wma: pWma, ngram: pNgram, markov: pMarkov };
+        const preds = { lln: pLln, wma: pWma, ngram: pNgram, markov: pMarkov, qtable: pQTable };
 
         let nextColor = 'GREEN';
         if (hColors.length > 0) {
             const lastColor = hColors[hColors.length - 1];
-            const consensusSignal = this.voteConsensus(pLln, pWma, pNgram, pMarkov, 'GREEN', 'RED');
+            const consensusSignal = this.voteConsensus(pLln, pWma, pNgram, pMarkov, pQTable, 'GREEN', 'RED');
 
             if (this.currentLevel === 1) nextColor = consensusSignal;
             else if (this.currentLevel === 2) nextColor = lastColor;
@@ -470,10 +533,11 @@ class FastParityPredictor {
         if (commit) {
             this.lastSignal = nextColor;
             this.predictionCache = preds;
+            this.updateQTable(this.history, this.predictionCache, nextColor);
         }
 
-        const maxScore = Math.max(this.engineScores.lln, this.engineScores.wma, this.engineScores.ngram, this.engineScores.markov);
-        const conf = Math.min(88 + (Math.max(0, maxScore) * 2), 100);
+        const maxScore = Math.max(this.engineScores.lln, this.engineScores.wma, this.engineScores.ngram, this.engineScores.markov, this.engineScores.qtable);
+        const conf = Math.min(85 + (Math.max(0, maxScore) * 2.5), 100);
 
         return {
             target: nextColor,
